@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161616">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="STATERA Atelier">
+<title>STATERA Atelier</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app" class="shell">
+  <nav class="side" aria-label="Navigation principale">
+    <a class="brand" href="#/projets" aria-label="STATERA Atelier, accueil">
+      <span class="brand-word">STATERA</span>
+      <span class="brand-sub">ATELIER</span>
+    </a>
+    <div class="side-links" id="nav"></div>
+    <div class="side-foot" id="side-foot"></div>
+  </nav>
+  <main id="view" class="view" tabindex="-1"></main>
+  <nav class="tabbar" id="tabbar" aria-label="Navigation principale"></nav>
+</div>
+<div id="layer"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

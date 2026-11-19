@@ -1,0 +1,17 @@
+{
+  "name": "STATERA Atelier",
+  "short_name": "Atelier",
+  "description": "Projets, notes, plans annotés, points de chantier et comptes rendus de STATERA Architecture.",
+  "lang": "fr",
+  "start_url": "./index.html#/projets",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F4F3F0",
+  "theme_color": "#161616",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
