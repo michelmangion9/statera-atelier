@@ -4,7 +4,6 @@ import { h, put, clear, icon, debounce, toast, fmtDate, fmtShort, fmtEuro, today
 import { db } from '../db.js';
 import { PHASES, phase, fileName, fileCode, destFor } from '../data.js';
 import { logoSVG as brandLogo } from '../brand.js';
-import { listenCard } from '../listen.js';
 
 const PHASE_TEXT = {
   FAI: 'Analyse du terrain, des règles d’urbanisme et du programme.',
@@ -75,7 +74,7 @@ export async function render(view, { project: p }) {
       h('div', { class: 'rdv-logo' }, brandLogo()),
       h('div', { class: 'rdv-actions' },
         h('button', { class: 'btn btn-line', onclick: printSheet }, icon('download', 18), 'Fiche A4'),
-        h('a', { class: 'btn btn-line btn-icon', href: '#/p/' + p.id, 'aria-label': 'Quitter le mode rendez-vous' }, icon('close', 18)))),
+        h('button', { class: 'btn btn-line', onclick: () => { if (history.length > 1) history.back(); else location.hash = '#/p/' + p.id + '/journal'; }, 'aria-label': 'Revenir à la séance' }, icon('back', 18), 'Revenir à la séance'))),
     h('section', { class: 'rdv-hero' },
       h('div', { class: 'eyebrow' }, 'Rendez-vous du ' + fmtDate(todayISO())),
       h('h1', { class: 'rdv-title' }, p.nom),
@@ -92,7 +91,6 @@ export async function render(view, { project: p }) {
         todos.length ? h('div', null, h('h3', null, 'En attente'), h('ul', { class: 'rdv-list' }, todos.slice(0, 6).map((t) => h('li', null, t.text, t.who ? h('small', null, ' · ' + t.who) : null)))) : null),
       h('section', { class: 'rdv-card' }, h('h2', null, 'Aujourd’hui'), area('agenda', 'Points à aborder, questions du client…')),
       h('section', { class: 'rdv-card' }, h('h2', null, 'La suite'), area('suite', 'Prochaines étapes, documents à fournir, date du prochain rendez-vous…'))),
-    listenCard(p),
     plans.length ? h('section', { class: 'rdv-card' }, h('h2', null, 'Plans à montrer'),
       h('div', { class: 'rdv-plans' }, plans.slice(0, 8).map((pl) => h('a', { class: 'rdv-plan', href: '#/p/' + p.id + '/plans/' + pl.id }, pl.thumb ? h('img', { src: blobURL(pl.id + 't', pl.thumb), alt: '' }) : h('div', { class: 'ph' }), h('span', null, pl.nom || 'Plan'))))) : null,
     h('section', { class: 'rdv-card' }, h('h2', null, 'Google'), gBox,

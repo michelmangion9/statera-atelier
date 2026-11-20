@@ -53,7 +53,7 @@ function header(p) {
       h('h1', { class: 'title' }, p.nom),
       h('div', { class: 'sub' }, [p.client, p.commune, p.type].filter(Boolean).join(' · '))),
     h('div', { class: 'actions' },
-      h('a', { class: 'btn btn-line', href: '#/p/' + p.id + '/rdv' }, icon('info', 18), 'Mode RDV'),
+      h('a', { class: 'btn btn-line', href: '#/p/' + p.id + '/notes/new?type=rdv' }, icon('info', 18), 'Mode RDV'),
       h('a', { class: 'btn', href: '#/p/' + p.id + '/journal?new=1' }, icon('plus', 18), 'Nouveau'),
       h('a', { class: 'btn btn-primary', href: '#/p/' + p.id + '/plans' }, icon('plan', 18), 'Plans')));
 }

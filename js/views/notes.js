@@ -47,6 +47,11 @@ export async function renderEditor(view, params) {
   const p = await loadProject(params.projectId);
   if (params.noteId === 'new') {
     const type = params.q.type || 'rdv';
+    // Mode RDV : on reprend le RDV client du jour s'il existe déjà, sinon on en ouvre un nouveau
+    if (type === 'rdv') {
+      const today = (await db.by('notes', 'projectId', p.id)).find((x) => x.type === 'rdv' && x.date === todayISO());
+      if (today) { location.replace('#/p/' + p.id + '/notes/' + today.id); return; }
+    }
     const n = { id: uid(), projectId: p.id, type, titre: '', date: todayISO(), heure: nowTime(), lieu: '', participants: p.client || '', agenda: (AGENDAS[type] || []).map((t) => ({ text: t, done: false })), body: '', decisions: [], todos: [], sketch: [], sketchAspect: 0.62, photos: [], phase: p.phase, createdAt: new Date().toISOString() };
     await db.put('notes', n);
     location.replace('#/p/' + p.id + '/notes/' + n.id);
@@ -129,6 +134,7 @@ export async function renderEditor(view, params) {
         h('a', { class: 'crumb', href: back }, icon('back', 16), p.nom, h('span', { class: 'dotsep' }), 'Journal'),
         bind('titre', h('input', { class: 'title', placeholder: noteType(n.type).nom + ' du ' + fmtDate(n.date), 'aria-label': 'Titre de la note', style: { border: 0, background: 'transparent', width: '100%', padding: 0, outline: 'none' } }))),
       h('div', { class: 'actions' }, saved,
+        n.type === 'rdv' ? h('a', { class: 'btn btn-line', href: '#/p/' + p.id + '/rdv', title: 'Résumé du projet à montrer au client, fiche A4, liens Google' }, icon('info', 18), 'Vue client') : null,
         h('button', { class: 'btn', onclick: exportPDF }, icon('share', 18), 'Compte rendu PDF'))),
     h('div', { class: 'cols' },
       h('div', { class: 'stack' },
