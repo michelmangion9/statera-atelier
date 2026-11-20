@@ -304,3 +304,39 @@ hr.rule { border: 0; border-top: 1px solid var(--rule); margin: 24px 0; }
 .row-tags{display:flex;gap:6px;flex-shrink:0;align-items:center}
 .row-x{display:none;font-size:12px;color:var(--ink3);letter-spacing:.02em}
 @media (max-width:700px){.row-tags{display:none}.row-x{display:block}}
+
+/* Mode rendez-vous client */
+body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
+.rdv{max-width:1180px;margin:0 auto;padding:22px 28px 60px}
+.rdv-head{display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--stone)}
+.rdv-logo svg{height:46px;width:auto;display:block}
+.rdv-actions{display:flex;gap:8px}
+.rdv-hero{padding:34px 0 18px}
+.rdv-title{font-weight:300;font-size:clamp(34px,5vw,56px);letter-spacing:-.01em;margin:6px 0 4px;line-height:1.05}
+.rdv-sub{color:var(--ink2);font-size:17px}
+.rdv-phases{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin:8px 0 26px}
+.rdv-ph{border-top:3px solid var(--rule);padding-top:8px;font-size:11px;color:var(--ink3);min-width:0}
+.rdv-ph b{display:block;font-weight:500;font-size:12px;letter-spacing:.08em;color:var(--ink3)}
+.rdv-ph span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rdv-ph.done{border-color:var(--ink2)} .rdv-ph.done b{color:var(--ink2)}
+.rdv-ph.now{border-color:var(--stone);color:var(--stone)} .rdv-ph.now b{color:var(--stone)}
+.rdv-phtext{grid-column:1/-1;margin:14px 0 0;font-size:16px;color:var(--ink2)} .rdv-phtext b{color:var(--stone);font-weight:500}
+.rdv-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 40px}
+.rdv-card{border-top:1px solid var(--stone);padding:16px 0 26px;min-width:0}
+.rdv-card h2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:500;color:var(--ink3);margin:0 0 12px}
+.rdv-card h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;color:var(--ink3);margin:16px 0 6px}
+.rdv-list{margin:0;padding:0;list-style:none}
+.rdv-list li{padding:8px 0;border-bottom:1px solid var(--rule);font-size:16px}
+.rdv-list small{color:var(--ink3)}
+.rdv-area{font-size:17px;min-height:120px}
+.rdv-plans{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.rdv-plan{text-decoration:none;color:inherit;display:block}
+.rdv-plan img,.rdv-plan .ph{width:100%;aspect-ratio:1.414;object-fit:contain;background:#fff;border:1px solid var(--rule);display:block}
+.rdv-plan span{display:block;font-size:13px;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rdv-google{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:12px}
+.gbtn{display:flex;gap:12px;align-items:center;padding:14px;border:1px solid var(--rule);text-decoration:none;color:var(--stone);background:var(--chaux);min-width:0}
+.gbtn:hover{border-color:var(--stone)}
+.gbtn b{display:block;font-weight:500;font-size:15px}
+.gbtn small{display:block;color:var(--ink3);font-size:12px}
+.gbtn-in span{flex:1;min-width:0} .gbtn-in .input{font-size:13px;padding:4px 0}
+@media (max-width:760px){.rdv{padding:16px 18px 50px}.rdv-grid{grid-template-columns:1fr}.rdv-phases{grid-template-columns:repeat(5,1fr);row-gap:12px}.rdv-logo svg{height:34px}}

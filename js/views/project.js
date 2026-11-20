@@ -21,6 +21,7 @@ export async function loadProject(id) {
 
 export async function render(view, params) {
   const p = await loadProject(params.projectId);
+  if (params.tab === 'rdv') { document.body.classList.add('rdv-mode'); (await import('./rdv.js')).render(view, { project: p }); return () => document.body.classList.remove('rdv-mode'); }
   const [notes, plans, points, files] = await Promise.all([
     db.by('notes', 'projectId', p.id), db.by('plans', 'projectId', p.id), db.by('points', 'projectId', p.id), db.by('files', 'projectId', p.id)
   ]);
@@ -52,6 +53,7 @@ function header(p) {
       h('h1', { class: 'title' }, p.nom),
       h('div', { class: 'sub' }, [p.client, p.commune, p.type].filter(Boolean).join(' · '))),
     h('div', { class: 'actions' },
+      h('a', { class: 'btn btn-line', href: '#/p/' + p.id + '/rdv' }, icon('info', 18), 'Mode RDV'),
       h('a', { class: 'btn', href: '#/p/' + p.id + '/notes/new' }, icon('note', 18), 'Note'),
       h('a', { class: 'btn btn-primary', href: '#/p/' + p.id + '/plans' }, icon('plan', 18), 'Plans')));
 }

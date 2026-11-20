@@ -1,11 +1,11 @@
 // Réglages : cabinet, sauvegarde, stockage, connexions prévues
 import { h, put, clear, icon, toast, debounce, confirmBox, pickFiles, downloadBlob, blobToDataURL, dataURLToBlob, fmtSize, fmtDate, todayISO } from '../lib.js';
 import { db, STORES, usage, askPersist } from '../db.js';
-import { CABINET_DEFAULT } from '../data.js';
+import { CABINET_DEFAULT, MENTION_CR } from '../data.js';
 
 export async function render(view) {
   const cab = Object.assign({}, CABINET_DEFAULT, (await db.setting('cabinet', {})) || {});
-  const mention = (await db.setting('mentionCR', null)) || 'Les observations éventuelles sur ce compte rendu sont à adresser à la maîtrise d’œuvre avant la prochaine réunion.';
+  const mention = (await db.setting('mentionCR', null)) || MENTION_CR;
   const lastBackup = await db.setting('lastBackup', null);
   const saved = h('span', { class: 'saved' });
   const save = debounce(async () => { await db.setSetting('cabinet', cab); saved.textContent = 'Enregistré'; setTimeout(() => (saved.textContent = ''), 1400); }, 400);

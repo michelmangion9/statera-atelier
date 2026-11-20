@@ -46,6 +46,15 @@ export function setLots(list) { LOTS.splice(0, LOTS.length, ...list); }
 export const lot = (id) => LOTS.find((l) => l.id === id) || (id ? { id, nom: 'Lot ' + id, code: id, color: '#757575' } : { id: '', nom: 'Non attribué', code: '—', color: '#757575' });
 export const lotLabel = (id) => { const l = lot(id); return /^\d+$/.test(l.id) ? l.id + ' · ' + l.nom : l.nom; };
 
+export const VISIT_TYPES = [
+  { id: 'chantier', nom: 'Réunion de chantier', titre: 'Compte rendu de chantier', court: 'CR', obj: 'Reunion' },
+  { id: 'opr', nom: 'OPR', titre: 'Opérations préalables à la réception', court: 'OPR', obj: 'OPR' },
+  { id: 'reception', nom: 'Réception', titre: 'Procès-verbal de réception des travaux', court: 'PV', obj: 'Reception' },
+  { id: 'levee', nom: 'Levée des réserves', titre: 'Constat de levée des réserves', court: 'LR', obj: 'Levee-reserves' }
+];
+export const visitType = (id) => VISIT_TYPES.find((v) => v.id === id) || VISIT_TYPES[0];
+export const MENTION_CR = 'Sauf observations écrites adressées à la maîtrise d’œuvre dans un délai de 8 jours à compter de sa diffusion, le présent compte rendu est réputé accepté par l’ensemble des destinataires. Les entreprises absentes ou excusées sont réputées en avoir pris connaissance et sont tenues d’exécuter les prescriptions qui les concernent.';
+
 export const NOTE_TYPES = [
   { id: 'rdv', nom: 'RDV client', court: 'RDV CLIENT' },
   { id: 'site', nom: 'Visite de site', court: 'VISITE DE SITE' },

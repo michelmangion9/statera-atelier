@@ -2,7 +2,7 @@
 import { loadScript, fmtDate, fmtShort, blobToDataURL } from './lib.js';
 import { LOGO_VB, LOGO_PATHS } from './brand.js';
 import { drawStrokes } from './ink.js';
-import { lot as lotOf, lotLabel as lotLabelOf, status as statusOf, noteType, CABINET_DEFAULT } from './data.js';
+import { lot as lotOf, lotLabel as lotLabelOf, status as statusOf, noteType, CABINET_DEFAULT, visitType, MENTION_CR, phase as phaseOf } from './data.js';
 
 /* ---------------- Lecture : pdf.js ---------------- */
 let pdfjsP;
@@ -139,7 +139,9 @@ class Doc {
   logo(page, x, yTop, width, color) {
     const [vx, vy, vw] = LOGO_VB.split(/\s+/).map(Number);
     const k = width / vw;
-    LOGO_PATHS.forEach((d) => page.drawSvgPath(d, { x: x - vx * k, y: yTop + vy * k, scale: k, color: color || this.c.ink, borderWidth: 0 }));
+    const maxX = vx + vw;
+    const clip = (d) => d.split(/(?=M)/).filter((sp) => { const n = (sp.match(/-?\d+\.?\d*/g) || []).map(Number); return n.every((v, i) => i % 2 || v <= maxX + 1); }).join('');
+    LOGO_PATHS.map(clip).forEach((d) => d && page.drawSvgPath(d, { x: x - vx * k, y: yTop + vy * k, scale: k, color: color || this.c.ink, borderWidth: 0 }));
     return width * (Number(LOGO_VB.split(/\s+/)[3]) / vw);
   }
   newPage(first, size) {
@@ -325,9 +327,10 @@ export async function buildCR({ project, reunion, points, assignments, entrepris
   const cab = await cabinet(getSetting);
   const ent = (id) => entreprises.find((e) => e.id === id);
   const lotLabel = (lid) => (lid === '—' || !lid) ? 'Généralités' : lotLabelOf(lid);
-  const title = 'Compte rendu de chantier n°' + reunion.num;
+  const vt = visitType(reunion.type);
+  const title = vt.id === 'chantier' ? vt.titre + ' n°' + reunion.num : vt.titre;
   const subtitle = fmtDate(reunion.date, true) + (reunion.heure ? ' · ' + reunion.heure : '') + (onlyLot ? ' · ' + lotLabel(onlyLot) : '');
-  const d = await Doc.create({ title, subtitle, cabinet: cab, ref: (project.code || '') + ' · CR' + String(reunion.num).padStart(2, '0') + (onlyLot ? ' · lot ' + onlyLot : '') });
+  const d = await Doc.create({ title, subtitle, cabinet: cab, ref: (project.code || '') + ' · ' + vt.court + String(reunion.num).padStart(2, '0') + (onlyLot ? ' · lot ' + onlyLot : '') });
 
   d.h2('Opération');
   d.kvGrid([
@@ -408,12 +411,59 @@ export async function buildCR({ project, reunion, points, assignments, entrepris
     d.y -= 6;
   }
 
+  if (vt.id === 'reception' || vt.id === 'levee') {
+    const W = A4[0] - 2 * M;
+    d.h2(vt.id === 'reception' ? 'Décision du maître d’ouvrage' : 'Constat');
+    const opts = vt.id === 'reception'
+      ? [['sans', 'La réception est prononcée sans réserve.'], ['avec', 'La réception est prononcée avec les réserves listées ci-dessus, à lever par les entreprises concernées' + (reunion.delaiLevee ? ' dans un délai de ' + reunion.delaiLevee + ' jours.' : '.')], ['refus', 'La réception est refusée' + (reunion.motifRefus ? ' : ' + reunion.motifRefus : '.')]]
+      : [['tout', 'L’ensemble des réserves listées est levé.'], ['partiel', 'Les réserves restant ouvertes ci-dessus demeurent à lever.']];
+    for (const [k, t] of opts) {
+      d.ensure(18);
+      const on = (reunion.decision || (vt.id === 'reception' ? 'avec' : 'partiel')) === k;
+      d.p.drawRectangle({ x: M, y: d.y - 9, width: 8, height: 8, borderColor: d.c.ink, borderWidth: 0.6, color: on ? d.c.ink : undefined });
+      const ls = d.lines(t, 9.5, W - 18);
+      ls.forEach((l, i) => d.p.drawText(l, { x: M + 16, y: d.y - 8 - i * 12.5, size: 9.5, font: d.f.r, color: d.c.ink }));
+      d.y -= 8 + ls.length * 12.5 + 4;
+    }
+    if (vt.id === 'reception') d.para('Date d’effet de la réception : ' + fmtDate(reunion.dateEffet || reunion.date) + '. Elle fait courir la garantie de parfait achèvement (1 an), la garantie de bon fonctionnement (2 ans) et la garantie décennale (10 ans).', { size: 8.5, color: d.c.grey });
+    d.h2('Signatures');
+    const sig = ['Maître d’ouvrage', 'Maîtrise d’œuvre', onlyLot ? 'Entreprise · lot ' + onlyLot : 'Entreprise(s)'];
+    d.ensure(84);
+    const bw = (W - 24) / 3;
+    sig.forEach((t, i) => {
+      const x = M + i * (bw + 12);
+      d.p.drawText(d.safe(t.toUpperCase()), { x, y: d.y - 10, size: 6.8, font: d.f.m || d.f.r, color: d.c.grey });
+      d.p.drawRectangle({ x, y: d.y - 76, width: bw, height: 58, borderColor: d.c.line, borderWidth: 0.5 });
+      d.p.drawText('Lu et approuvé, date :', { x: x + 6, y: d.y - 28, size: 7, font: d.f.r, color: d.c.grey });
+    });
+    d.y -= 84;
+  }
   if (reunion.prochaine) { d.h2('Prochaine réunion'); d.para(fmtDate(reunion.prochaine, true) + (reunion.prochaineHeure ? ' à ' + reunion.prochaineHeure : '') + ' · sur site', { size: 10 }); }
-  const mention = (await getSetting('mentionCR', null)) || 'Les observations éventuelles sur ce compte rendu sont à adresser à la maîtrise d’œuvre avant la prochaine réunion.';
+  const mention = (await getSetting('mentionCR', null)) || MENTION_CR;
   d.y -= 4; d.para(mention, { size: 8, color: d.c.grey });
   return new Blob([await d.save()], { type: 'application/pdf' });
 }
 function presence(v) { return v === 'A' ? 'Absent' : v === 'E' ? 'Excusé' : v === 'P' ? 'Présent' : 'Convoqué'; }
+
+/* ---------- Fiche de rendez-vous client (A4 à imprimer) ---------- */
+export async function buildRdvPDF({ project, decisions = [], todos = [], getSetting }) {
+  const cab = await cabinet(getSetting);
+  const ph = phaseOf(project.phase);
+  const d = await Doc.create({ title: 'Fiche de rendez-vous', subtitle: fmtDate(new Date().toISOString().slice(0, 10), true), cabinet: cab, ref: (project.code || '') + ' · RDV' });
+  const pr = project.prog || {};
+  d.kvGrid([['Projet', project.nom], ['Dossier', project.code], ['Maître d’ouvrage', project.client], ['Adresse des travaux', [project.adresse, project.commune].filter(Boolean).join(', ')], ['Phase en cours', ph.nom], ['Budget travaux HT', pr.budget ? Number(pr.budget).toLocaleString('fr-FR') + ' €' : '']]);
+  const rdv = project.rdv || {};
+  const block = (t, items) => { if (!items.length) return; d.h2(t); items.forEach((x) => d.para('— ' + x, { size: 10, gap: 2 })); };
+  block('Décidé ensemble', decisions.slice(0, 10).map((x) => x.text));
+  block('En attente', todos.slice(0, 8).map((x) => x.text + (x.who ? ' (' + x.who + ')' : '')));
+  if (rdv.agenda) { d.h2('Aujourd’hui'); d.para(rdv.agenda, { size: 10 }); }
+  if (rdv.suite) { d.h2('La suite'); d.para(rdv.suite, { size: 10 }); }
+  d.h2('Notes du rendez-vous');
+  d.ensure(120);
+  const W = A4[0] - 2 * M;
+  while (d.y - 22 > FOOT + 30) { d.y -= 22; d.p.drawLine({ start: { x: M, y: d.y }, end: { x: M + W, y: d.y }, thickness: 0.3, color: d.c.line }); }
+  return new Blob([await d.save()], { type: 'application/pdf' });
+}
 
 /* ---------- Compte rendu de rendez-vous (note) ---------- */
 export async function buildNotePDF({ project, note, getSetting }) {

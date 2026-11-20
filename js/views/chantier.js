@@ -1,7 +1,7 @@
 // Chantier : entreprises affectées par lot, réunions, CR par lot envoyés à chaque entreprise
 import { h, put, clear, icon, uid, sheet, toast, fmtDate, fmtShort, daysUntil, todayISO, nowTime, confirmBox, shareOrDownload, downloadBlob, debounce } from '../lib.js';
 import { db } from '../db.js';
-import { LOTS, lot as lotOf, fileName, fileCode } from '../data.js';
+import { LOTS, lot as lotOf, fileName, fileCode, VISIT_TYPES, visitType } from '../data.js';
 import { editEntreprise, decStatus } from './entreprises.js';
 
 export async function render(body, ctx) {
@@ -68,10 +68,14 @@ export async function render(body, ctx) {
     });
   }
 
-  async function newReunion() {
+  function newReunion() {
+    const s = sheet({ title: 'Nouvelle visite', body: [h('div', { class: 'list' }, VISIT_TYPES.map((t) => h('button', { class: 'row', onclick: () => { s.close(); createReunion(t.id); } },
+      h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, t.nom), h('span', { class: 'row-s' }, t.titre)), h('span', { class: 'chev' }, icon('chev', 18)))))] });
+  }
+  async function createReunion(type) {
     const num = reunions.reduce((m, r) => Math.max(m, r.num), 0) + 1;
     const prev = reunions[0];
-    const r = { id: uid(), projectId: p.id, num, date: todayISO(), heure: nowTime(), presence: { moe: 'P' }, general: '', avancement: '', autres: prev ? prev.autres || '' : '', prochaine: '', prochaineHeure: prev ? prev.prochaineHeure || '' : '', sent: {}, createdAt: new Date().toISOString() };
+    const r = { id: uid(), projectId: p.id, num, type, date: todayISO(), heure: nowTime(), presence: { moe: 'P' }, general: '', avancement: '', autres: prev ? prev.autres || '' : '', prochaine: '', prochaineHeure: prev ? prev.prochaineHeure || '' : '', sent: {}, createdAt: new Date().toISOString() };
     if (prev && prev.prochaine) r.date = prev.prochaine;
     await db.put('reunions', r);
     location.hash = '#/p/' + p.id + '/chantier?r=' + r.id;
@@ -80,11 +84,11 @@ export async function render(body, ctx) {
   put(clear(body), 
     h('section', { class: 'card mb' }, assignBox),
     h('section', { class: 'card' },
-      h('div', { class: 'flexb', style: { marginBottom: '12px' } }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Réunions de chantier'),
-        h('button', { class: 'btn btn-sm btn-primary', onclick: newReunion }, icon('plus', 16), 'Nouvelle réunion')),
+      h('div', { class: 'flexb', style: { marginBottom: '12px' } }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Réunions · OPR · Réception'),
+        h('button', { class: 'btn btn-sm btn-primary', onclick: newReunion }, icon('plus', 16), 'Nouvelle visite')),
       reunions.length ? h('div', { class: 'list' }, reunions.map((r) => h('a', { class: 'row', href: '#/p/' + p.id + '/chantier?r=' + r.id },
         h('span', { class: 'pt-num' }, h('b', null, r.num), h('i', null, 'CR')),
-        h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, 'Réunion n°' + r.num + ' · ' + fmtDate(r.date, true)),
+        h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, visitType(r.type).nom + ' n°' + r.num + ' · ' + fmtDate(r.date, true)),
           h('span', { class: 'row-s' }, Object.keys(r.sent || {}).length ? 'CR envoyés : ' + Object.keys(r.sent).map((k) => k === 'moa' ? 'MOA' : 'lot ' + k).join(', ') : 'CR non diffusé')),
         h('span', { class: 'chev' }, icon('chev', 18))))) : h('div', { class: 'empty' }, 'Aucune réunion. Lors de la visite, posez les points sur les plans, puis créez la réunion pour générer les comptes rendus par lot.')));
   drawAssign();
@@ -147,12 +151,13 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
     const existing = await db.by('files', 'projectId', p.id);
     for (const k of keys) {
       const blob = await buildCR({ project: p, reunion: r, points, assignments: p.assignments, entreprises, plans, media, pageAnnots, onlyLot: k === 'moa' ? null : k, getSetting: db.setting, previous });
-      const name = fileName({ date: r.date, code: fileCode(p), phase: 'DET', type: 'CR', objet: 'Reunion-' + String(r.num).padStart(2, '0') + (k === 'moa' ? '' : '-Lot' + k), ind: 'A', ext: 'pdf' });
+      const vt = visitType(r.type); const rec = vt.id === 'reception' || vt.id === 'levee' || vt.id === 'opr';
+      const name = fileName({ date: r.date, code: fileCode(p), phase: rec ? 'AOR' : 'DET', type: vt.id === 'reception' ? 'PV' : 'CR', objet: vt.obj + '-' + String(r.num).padStart(2, '0') + (k === 'moa' ? '' : '-Lot' + k), ind: 'A', ext: 'pdf' });
       const old = existing.find((f) => f.name === name);
-      await db.put('files', { id: old ? old.id : uid(), projectId: p.id, folder: '06_CHANTIER', name, mime: 'application/pdf', size: blob.size, blob, phase: 'DET', reunionId: r.id, createdAt: new Date().toISOString(), source: 'reunion', sub: '03_Emis' });
+      await db.put('files', { id: old ? old.id : uid(), projectId: p.id, folder: rec ? '10_RECEPTION_AOR' : '09_CHANTIER_DET', name, mime: 'application/pdf', size: blob.size, blob, phase: rec ? 'AOR' : 'DET', reunionId: r.id, createdAt: new Date().toISOString(), source: 'reunion', sub: '03_Emis' });
       results[k] = { blob, name };
     }
-    toast('CR rangés dans 06_CHANTIER');
+    toast('Documents rangés dans ' + (['reception', 'levee', 'opr'].includes(r.type) ? '10_RECEPTION_AOR' : '09_CHANTIER_DET') + ' › 03_Emis');
     drawDiff();
   }
 
@@ -170,14 +175,24 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
 
   put(clear(body), 
     h('div', { class: 'flexb mb' },
-      h('div', null, h('a', { class: 'crumb', href: '#/p/' + p.id + '/chantier' }, icon('back', 16), 'Chantier'), h('h2', { class: 'title-sm' }, 'Réunion de chantier n°' + r.num)),
+      h('div', null, h('a', { class: 'crumb', href: '#/p/' + p.id + '/chantier' }, icon('back', 16), 'Chantier'), h('h2', { class: 'title-sm' }, visitType(r.type).nom + ' n°' + r.num)),
       h('div', { class: 'actions' },
         h('a', { class: 'btn', href: plans[0] ? '#/p/' + p.id + '/plans/' + plans[0].id + '?mode=point' : '#/p/' + p.id + '/plans' }, icon('pin', 18), 'Points sur plan'),
         h('button', { class: 'btn btn-line btn-icon', 'aria-label': 'Supprimer la réunion', onclick: async () => { if (await confirmBox('Supprimer la réunion n°' + r.num + ' ?', 'Supprimer')) { await db.del('reunions', r.id); location.hash = '#/p/' + p.id + '/chantier'; } } }, icon('trash', 18)))),
     h('div', { class: 'cols' },
       h('div', { class: 'stack' },
         h('section', { class: 'card stack' },
+          h('div', { class: 'seg', role: 'group', 'aria-label': 'Type de visite' }, VISIT_TYPES.map((t) => h('button', { 'aria-pressed': String(visitType(r.type).id === t.id), onclick: () => { r.type = t.id; db.put('reunions', r).then(() => window.dispatchEvent(new HashChangeEvent('hashchange'))); } }, t.nom))),
           h('div', { class: 'grid g2' }, fld('Date', bind('date', h('input', { class: 'input', type: 'date' }))), fld('Heure', bind('heure', h('input', { class: 'input', type: 'time' }))))),
+        r.type === 'reception' ? h('section', { class: 'card stack' },
+          h('h2', { class: 'section-t', style: { margin: 0 } }, 'Décision du maître d’ouvrage'),
+          h('div', { class: 'seg', role: 'group' }, [['sans', 'Sans réserve'], ['avec', 'Avec réserves'], ['refus', 'Refusée']].map(([v, l]) => h('button', { 'aria-pressed': String((r.decision || 'avec') === v), onclick: (ev) => { r.decision = v; ev.currentTarget.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === ev.currentTarget))); save(); } }, l))),
+          h('div', { class: 'grid g2' }, fld('Date d’effet', bind('dateEffet', h('input', { class: 'input', type: 'date' }))), fld('Délai de levée (jours)', bind('delaiLevee', h('input', { class: 'input', inputmode: 'numeric', placeholder: '30' })))),
+          fld('Motif en cas de refus', bind('motifRefus', h('input', { class: 'input' }))),
+          h('div', { class: 'small muted' }, 'Les réserves sont les points ouverts du chantier : posez-les sur les plans pendant la visite. Le PV comporte trois cadres de signature à faire signer sur place.')) : null,
+        r.type === 'levee' ? h('section', { class: 'card stack' },
+          h('h2', { class: 'section-t', style: { margin: 0 } }, 'Constat'),
+          h('div', { class: 'seg', role: 'group' }, [['partiel', 'Levée partielle'], ['tout', 'Tout est levé']].map(([v, l]) => h('button', { 'aria-pressed': String((r.decision || 'partiel') === v), onclick: (ev) => { r.decision = v; ev.currentTarget.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === ev.currentTarget))); save(); } }, l)))) : null,
         h('section', { class: 'card stack' },
           h('h2', { class: 'section-t', style: { margin: 0 } }, 'Présents'),
           h('div', { class: 'tbl-wrap' }, h('table', { class: 'tbl' }, h('tbody', null,
