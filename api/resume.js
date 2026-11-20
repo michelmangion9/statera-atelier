@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
   const prompt = body && body.prompt;
   if (!prompt || typeof prompt !== 'string' || prompt.length > 400000) return res.status(400).json({ error: 'prompt' });
   // Modèle principal puis repli si Gemini est saturé (503) ou limité (429).
-  const models = [process.env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-pro-latest'].filter((m, i, l) => l.indexOf(m) === i);
+  const models = [process.env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'].filter((m, i, l) => l.indexOf(m) === i);
   let last = null; const tried = [];
   for (const model of models) {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
         const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
           method: 'POST', signal: AbortSignal.timeout(40000),
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } } })
+          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2 } })
         });
         const j = await r.json().catch(() => ({}));
         tried.push(model + ':' + r.status + ':' + (Date.now() - t0) + 'ms' + (r.ok ? '' : ':' + ((j.error && j.error.message) || '').slice(0, 120)));
@@ -36,8 +36,8 @@ module.exports = async (req, res) => {
           break;
         }
         last = { status: r.status, message: (j.error && j.error.message) || '' };
-        if (r.status === 503 || r.status === 429 || r.status === 500) { if (attempt === 0) await new Promise((ok) => setTimeout(ok, 1500)); continue; }
-        if (r.status === 404) break; // modèle inconnu : on passe au suivant
+        if (r.status === 503 || r.status === 429 || r.status === 500) { if (r.status === 503) break; if (attempt === 0) await new Promise((ok) => setTimeout(ok, 1500)); continue; }
+        if (r.status === 404 || r.status === 400) break; // modèle inconnu : on passe au suivant
         return res.status(502).json({ error: 'gemini', status: r.status, message: last.message, tried });
       } catch (e) { last = { status: 0, message: String(e && e.message || e) }; tried.push(model + ':err:' + last.message.slice(0, 80)); }
     }
