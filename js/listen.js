@@ -54,6 +54,8 @@ export function listenCard(p, { onNote } = {}) {
   tx.value = finalText;
   tx.addEventListener('input', () => { finalText = tx.value; p.rdv.transcript = finalText; save(); });
   const btn = h('button', { class: 'btn btn-primary listen-btn', onclick: () => (on ? stop() : start()) }, icon('phone', 18), 'Démarrer l’écoute');
+  const gemBtn = h('button', { class: 'btn btn-line', onclick: () => toGemini() }, icon('share', 18), '1 · Résumer avec Gemini');
+  const gemHint = h('span', { class: 'small muted' }, 'Copie la consigne et la transcription, ouvre Gemini : colle, puis copie sa réponse.');
   const sumBox = h('textarea', { class: 'textarea', rows: 6, placeholder: 'Colle ici la réponse de Gemini, puis « Créer la note ».' });
 
   function tick() { const s = Math.round((Date.now() - t0) / 1000); status.textContent = '● Écoute en cours · ' + Math.floor(s / 60) + ' min ' + String(s % 60).padStart(2, '0'); }
@@ -105,9 +107,22 @@ export function listenCard(p, { onNote } = {}) {
     p.rdv.transcript = finalText; save();
   }
 
+  let api = null;
+  fetch('/api/resume', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { api = j; if (j && j.configured) { put(clear(gemBtn), icon('share', 18), '1 · Résumer avec Gemini (auto)'); gemHint.textContent = 'Gemini lit la transcription et remplit le résumé ci-dessous, en quelques secondes.'; } }).catch(() => {});
   async function toGemini() {
     if (!finalText.trim()) { toast('Pas encore de transcription'); return; }
     const text = promptFor(p, finalText);
+    if (api && api.configured) {
+      gemBtn.disabled = true; const old = gemBtn.lastChild.textContent; gemBtn.lastChild.textContent = 'Gemini rédige…';
+      try {
+        let tk = ''; try { tk = localStorage.getItem('statera-atelier-ia') || ''; } catch (e) { /* stockage */ }
+        const r = await fetch('/api/resume', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-atelier-token': tk }, body: JSON.stringify({ prompt: text }) });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j.text) { sumBox.value = j.text; sumBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Résumé prêt : vérifie-le puis « Créer la note »'); return; }
+        toast(r.status === 401 ? 'Code d’accès IA incorrect (Réglages)' : 'Gemini indisponible (' + (j.message || j.error || r.status) + ') : passage en copier-coller');
+      } catch (e) { toast('Hors connexion : passage en copier-coller'); }
+      finally { gemBtn.disabled = false; gemBtn.lastChild.textContent = old; }
+    }
     let ok = false;
     try { await navigator.clipboard.writeText(text); ok = true; } catch (e) { /* presse-papiers refusé */ }
     if (!ok) { const ta = h('textarea', { style: { position: 'fixed', opacity: 0 } }); ta.value = text; document.body.appendChild(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e) { /* rien */ } ta.remove(); }
@@ -135,8 +150,7 @@ export function listenCard(p, { onNote } = {}) {
     h('div', { class: 'listen-bar' }, btn, status),
     live, tx,
     h('div', { class: 'listen-steps' },
-      h('button', { class: 'btn btn-line', onclick: toGemini }, icon('share', 18), '1 · Résumer avec Gemini'),
-      h('span', { class: 'small muted' }, 'Copie la consigne et la transcription, ouvre Gemini : colle, puis copie sa réponse.')),
+      gemBtn, gemHint),
     sumBox,
     h('div', { class: 'listen-steps' },
       h('button', { class: 'btn btn-primary', onclick: makeNote }, icon('note', 18), '2 · Créer la note'),
