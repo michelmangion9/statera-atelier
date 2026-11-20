@@ -1,7 +1,7 @@
 /* STATERA Atelier — service worker
    Navigation : réseau d'abord, repli hors ligne sur index.html.
    Ressources : précache versionné, purge des anciens caches. */
-const VERSION = 'atelier-v1.7.2';
+const VERSION = 'atelier-v1.8.0';
 const PRECACHE = [
   './', './index.html', './manifest.json', './css/app.css',
   './js/app.js', './js/lib.js', './js/db.js', './js/data.js', './js/ink.js', './js/pdfkit.js', './js/demo.js', './js/brand.js', './js/seed-entreprises.js',

@@ -8,9 +8,9 @@ export const TABS = [
   { id: 'synthese', label: 'Synthèse', icon: 'info' },
   { id: 'notes', label: 'Notes', icon: 'note' },
   { id: 'plans', label: 'Plans', icon: 'plan' },
+  { id: 'chantier', label: 'Chantier', icon: 'crane' },
   { id: 'points', label: 'Points', icon: 'pin' },
-  { id: 'fichiers', label: 'Fichiers', icon: 'folder' },
-  { id: 'chantier', label: 'Chantier', icon: 'crane' }
+  { id: 'fichiers', label: 'Fichiers', icon: 'folder' }
 ];
 
 export async function loadProject(id) {

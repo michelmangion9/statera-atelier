@@ -64,6 +64,11 @@ export async function renderViewer(view, params) {
     ['nav', 'Naviguer', 'hand'], ['point', 'Point', 'pin'], ['stylo', 'Stylo', 'pen'], ['feutre', 'Feutre', 'marker'],
     ['surligneur', 'Surligneur', 'highlight'], ['regle', 'Règle', 'fit'], ['texte', 'Texte', 'text'], ['gomme', 'Gomme', 'eraser']
   ];
+  // Hors visite, le plan est la base du projet : on l'annote, mais les points de chantier se posent dans une visite
+  const base = !visit;
+  const showBasePts = base && !!params.q.pt;
+  const lastVisit = base ? (await db.by('reunions', 'projectId', p.id)).sort((a, b) => (b.num || 0) - (a.num || 0))[0] : null;
+  if (base) TOOLS.splice(TOOLS.findIndex((t) => t[0] === 'point'), 1);
   const toolBtns = TOOLS.map(([id, label, ic]) => h('button', { class: 'tool', 'aria-pressed': String(mode === id), 'data-mode': id, title: label, onclick: () => setMode(id) }, ic ? icon(ic, 18) : null, h('span', { class: ic ? 'tool-l' : '' }, label)));
   const picker = penPicker({});
   picker.el.hidden = true;
@@ -76,7 +81,8 @@ export async function renderViewer(view, params) {
   const root = h('div', { class: 'viewer' },
     h('div', { class: 'v-top dark' },
       h('a', { class: 'tool', href: visit ? '#/p/' + p.id + '/chantier?r=' + visit.id : '#/p/' + p.id + '/plans', 'aria-label': visit ? 'Retour à la visite' : 'Retour aux plans' }, icon('back', 18)),
-      h('div', { class: 'v-title' }, h('b', null, plan.nom), titleSub, visit ? h('a', { class: 'v-visit', href: '#/p/' + p.id + '/chantier?r=' + visit.id }, 'Visite n°' + visit.num + ' · ' + fmtShort(visit.date)) : null),
+      h('div', { class: 'v-title' }, h('b', null, plan.nom), titleSub, visit ? h('a', { class: 'v-visit', href: '#/p/' + p.id + '/chantier?r=' + visit.id }, 'Visite n°' + visit.num + ' · ' + fmtShort(visit.date))
+        : h('a', { class: 'v-visit', href: lastVisit ? '#/p/' + p.id + '/plans/' + plan.id + '?v=' + lastVisit.id + '&mode=point' : '#/p/' + p.id + '/chantier', title: 'Les points de chantier se posent dans une visite' }, lastVisit ? 'Plan de base · points : visite n°' + lastVisit.num + ' →' : 'Plan de base · points : créer une visite →')),
       h('div', { class: 'toolbar', role: 'toolbar', 'aria-label': 'Outils' }, toolBtns,
         h('button', { class: 'tool', title: 'Annuler', 'aria-label': 'Annuler la dernière annotation', onclick: doUndo }, icon('undo', 18)),
         layerBtn,
@@ -88,7 +94,7 @@ export async function renderViewer(view, params) {
         nPages > 1 ? h('button', { class: 'tool', 'aria-label': 'Page précédente', onclick: () => goPage(pageIndex - 1) }, icon('back', 16)) : null,
         pageLbl,
         nPages > 1 ? h('button', { class: 'tool', 'aria-label': 'Page suivante', onclick: () => goPage(pageIndex + 1) }, icon('chev', 16)) : null),
-      h('div', { class: 'toolbar' }, lotSel,
+      base && !showBasePts ? h('div', { class: 'toolbar' }, h('span', { class: 'info' }, 'Plan de base du projet')) : h('div', { class: 'toolbar' }, lotSel,
         h('button', { class: 'tool', 'aria-pressed': 'true', onclick: (e) => { showLeves = !showLeves; e.currentTarget.setAttribute('aria-pressed', String(showLeves)); drawPins(); } }, 'Levés'),
         countLbl),
       h('div', { class: 'toolbar' },
@@ -231,6 +237,7 @@ export async function renderViewer(view, params) {
   }
   lotSel.addEventListener('change', () => { lotFilter = lotSel.value; drawPins(); });
   function visiblePoints() {
+    if (base && !showBasePts) return [];
     return points.filter((x) => x.planId === plan.id && (x.page || 0) === pageIndex && (lotFilter === 'tous' || (x.lot || '—') === lotFilter) && (showLeves || x.status !== 'leve'));
   }
   function drawPins() {
@@ -342,6 +349,7 @@ export async function renderViewer(view, params) {
   const ptrs = new Map();
   let gesture = null, stroke = null, tap = null;
   function setMode(m) {
+    if (base && m === 'point') m = 'nav';
     mode = m;
     toolBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
     stage.classList.toggle('erasing', m === 'gomme');
