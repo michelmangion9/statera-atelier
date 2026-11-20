@@ -108,7 +108,7 @@ export function listenCard(p, { onNote } = {}) {
   }
 
   let api = null;
-  fetch('/api/resume', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { api = j; if (j && j.configured) { put(clear(gemBtn), icon('share', 18), '1 · Résumer avec Gemini (auto)'); gemHint.textContent = 'Gemini lit la transcription et remplit le résumé ci-dessous, en quelques secondes.'; } }).catch(() => {});
+  fetch('/api/resume', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { api = j; if (j && j.configured) { put(clear(gemBtn), icon('share', 18), '1 · Résumer avec Gemini (auto)'); gemHint.textContent = 'Gemini lit la transcription et écrit le résumé dans le cadre ci-dessous (5 à 20 secondes).'; sumBox.placeholder = 'Le résumé de Gemini apparaît ici. Tu peux le corriger, puis « Créer la note ».'; } }).catch(() => {});
   async function toGemini() {
     if (!finalText.trim()) { toast('Pas encore de transcription'); return; }
     const text = promptFor(p, finalText);
@@ -116,11 +116,11 @@ export function listenCard(p, { onNote } = {}) {
       gemBtn.disabled = true; const old = gemBtn.lastChild.textContent; gemBtn.lastChild.textContent = 'Gemini rédige…';
       try {
         let tk = ''; try { tk = localStorage.getItem('statera-atelier-ia') || ''; } catch (e) { /* stockage */ }
-        const r = await fetch('/api/resume', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-atelier-token': tk }, body: JSON.stringify({ prompt: text }) });
+        const r = await fetch('/api/resume', { method: 'POST', signal: AbortSignal.timeout ? AbortSignal.timeout(70000) : undefined, headers: { 'Content-Type': 'application/json', 'x-atelier-token': tk }, body: JSON.stringify({ prompt: text }) });
         const j = await r.json().catch(() => ({}));
         if (r.ok && j.text) { sumBox.value = j.text; sumBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Résumé prêt : vérifie-le puis « Créer la note »'); return; }
         toast(r.status === 401 ? 'Code d’accès IA incorrect (Réglages)' : 'Gemini indisponible (' + (j.message || j.error || r.status) + ') : passage en copier-coller');
-      } catch (e) { toast('Hors connexion : passage en copier-coller'); }
+      } catch (e) { toast(e && e.name === 'TimeoutError' ? 'Gemini trop lent : passage en copier-coller' : 'Hors connexion : passage en copier-coller'); }
       finally { gemBtn.disabled = false; gemBtn.lastChild.textContent = old; }
     }
     let ok = false;
