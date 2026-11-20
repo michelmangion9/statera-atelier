@@ -398,3 +398,6 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .row-btn svg { flex-shrink: 0; }
 .mini-sk { position: relative; }
 .mini-sk img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+.drive-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.drive-filters input[type=search] { flex: 1 1 260px; }
+.drive-filters select { flex: 0 1 200px; }

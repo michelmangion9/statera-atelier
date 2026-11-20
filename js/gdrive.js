@@ -108,18 +108,37 @@ export async function download(f) {
   return out;
 }
 // Tous les PDF et images du dossier projet (sous-dossiers compris)
+// Plans et photos utilisables : PDF et images courantes uniquement (pas de DWG, DXF, RVT…)
+const PLAN_MIME = /^(application\/pdf|image\/(jpeg|png|heic|heif|webp|gif))$/;
+const BAD_EXT = /\.(dwg|dxf|rvt|rfa|skp|pln|ifc|3dm|max|psd|ai)$/i;
+export const isPlanFile = (f) => PLAN_MIME.test(f.mimeType || '') && !BAD_EXT.test(f.name || '');
+
+// Tous les PDF et photos du projet : dossiers explorés par niveaux, 25 dossiers par requête, en parallèle
 export async function allPlans(rootId, onFolder) {
-  const out = [], queue = [{ id: rootId, path: '' }];
-  let n = 0;
-  while (queue.length && n < 300) {
-    const cur = queue.shift(); n++;
-    onFolder && onFolder(cur.path);
-    for (const it of await list(cur.id)) {
-      if (isFolder(it)) { if (it.name !== '99_ARCHIVES') queue.push({ id: it.id, path: (cur.path ? cur.path + ' › ' : '') + it.name }); }
-      else if (/pdf|^image\//.test(it.mimeType)) out.push(Object.assign(it, { _path: cur.path }));
-    }
+  const out = [], paths = { [rootId]: '' };
+  let frontier = [rootId], seen = 0;
+  const kinds = "(mimeType='" + FOLDER + "' or mimeType='application/pdf' or mimeType contains 'image/')";
+  while (frontier.length && seen < 600) {
+    const chunks = [];
+    for (let i = 0; i < frontier.length; i += 25) chunks.push(frontier.slice(i, i + 25));
+    seen += frontier.length; onFolder && onFolder(seen);
+    const next = [];
+    await Promise.all(chunks.map(async (ids) => {
+      let pageToken = '';
+      do {
+        const q = '(' + ids.map((id) => "'" + esc(id) + "' in parents").join(' or ') + ') and trashed=false and ' + kinds;
+        const j = await api('/files?' + qs({ q, fields: 'nextPageToken,files(id,name,mimeType,size,modifiedTime,createdTime,webViewLink,thumbnailLink,parents)', pageSize: 1000, supportsAllDrives: true, includeItemsFromAllDrives: true, pageToken }));
+        for (const it of j.files || []) {
+          const par = (it.parents || []).find((x) => x in paths); const base = par != null ? paths[par] : '';
+          if (isFolder(it)) { if (it.name !== '99_ARCHIVES' && !(it.id in paths)) { paths[it.id] = (base ? base + ' › ' : '') + it.name; next.push(it.id); } }
+          else if (isPlanFile(it)) out.push(Object.assign(it, { _path: base }));
+        }
+        pageToken = j.nextPageToken || '';
+      } while (pageToken);
+    }));
+    frontier = next;
   }
-  return out.sort((a, b) => (b.modifiedTime || '').localeCompare(a.modifiedTime || ''));
+  return out;
 }
 
 export async function upload(parentId, blob, name, existingId) {
@@ -301,12 +320,12 @@ export function browser(p, { startId, startName, pick, onPick, actions } = {}) {
     }
     const crumbs = h('div', { class: 'drive-crumbs' }, trail.map((t, i) => [i ? h('span', { class: 'muted' }, ' › ') : null,
       h('button', { class: 'linkish', onclick: () => { trail.splice(i + 1); draw(); } }, t.name)]));
-    const folders = items.filter(isFolder), files = items.filter((f) => !isFolder(f));
+    const folders = items.filter(isFolder), files = items.filter((f) => !isFolder(f) && (!pick || isPlanFile(f)));
     put(clear(box), crumbs,
       folders.length ? h('div', { class: 'folders' }, folders.map((f) => h('button', { class: 'folder', onclick: () => { trail.push({ id: f.id, name: f.name }); draw(); } }, icon('folder', 18), h('b', null, f.name)))) : null,
       !items.length ? h('div', { class: 'empty' }, 'Dossier vide dans le Drive.') : null,
       files.length ? h('div', { class: 'list' }, files.map((f) => {
-        const pdfOrImg = /pdf|^image\//.test(f.mimeType);
+        const pdfOrImg = isPlanFile(f);
         return h('div', { class: 'row' },
           f.thumbnailLink ? h('img', { src: f.thumbnailLink, alt: '', referrerpolicy: 'no-referrer', style: { width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--rule)' } }) : h('span', { style: { flexShrink: 0, color: '#57544F' } }, icon(/^image\//.test(f.mimeType) ? 'camera' : 'file', 22)),
           h('a', { class: 'row-main', href: f.webViewLink, target: '_blank', rel: 'noopener', style: { textDecoration: 'none', color: 'inherit' } },
@@ -329,19 +348,38 @@ export function pickFromDrive(p, title = 'Choisir un plan dans le Drive') {
       try { res(await download(f)); } catch (e) { toast(e.message); res(null); }
     };
     const body = h('div');
-    const showAll = async () => {
-      put(clear(body), h('div', { class: 'small muted' }, 'Recherche des PDF du projet…'));
-      try {
-        const files = await allPlans(p.drive.id, (path) => { body.firstChild.textContent = 'Recherche… ' + (path || p.drive.name); });
-        put(clear(body), files.length ? h('div', { class: 'list' }, files.map((f) => h('button', { class: 'row', onclick: () => choose(f) },
-          icon(/pdf/.test(f.mimeType) ? 'file' : 'camera', 20),
+    let files = null, q = '', sort = 'recent', kind = 'tous';
+    const search = h('input', { class: 'input', type: 'search', placeholder: 'Rechercher un nom : RDC, coupe, façade, PC…', 'aria-label': 'Rechercher', oninput: () => { q = search.value; drawList(); } });
+    const sortSel = h('select', { class: 'input', 'aria-label': 'Trier', onchange: () => { sort = sortSel.value; drawList(); } },
+      h('option', { value: 'recent' }, 'Plus récents d’abord'), h('option', { value: 'ancien' }, 'Plus anciens d’abord'), h('option', { value: 'nom' }, 'Nom A → Z'), h('option', { value: 'dossier' }, 'Par dossier'));
+    const kindSeg = h('div', { class: 'seg', role: 'group' }, [['tous', 'Tout'], ['pdf', 'PDF'], ['photo', 'Photos']].map(([k, l]) =>
+      h('button', { 'aria-pressed': String(k === kind), onclick: (e) => { kind = k; kindSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === e.currentTarget))); drawList(); } }, l)));
+    const listBox = h('div');
+    const norm = (x) => (x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    function drawList() {
+      if (!files) return;
+      const words = norm(q).split(/[\s_\-]+/).filter(Boolean);
+      let fs = files.filter((f) => (kind === 'tous' || (kind === 'pdf') === (f.mimeType === 'application/pdf')) && words.every((w) => norm(f.name + ' ' + f._path).includes(w)));
+      const by = { recent: (a, b) => (b.modifiedTime || '').localeCompare(a.modifiedTime || ''), ancien: (a, b) => (a.modifiedTime || '').localeCompare(b.modifiedTime || ''), nom: (a, b) => a.name.localeCompare(b.name, 'fr', { numeric: true }), dossier: (a, b) => (a._path || '').localeCompare(b._path || '', 'fr', { numeric: true }) || a.name.localeCompare(b.name, 'fr', { numeric: true }) };
+      fs = fs.slice().sort(by[sort]);
+      put(clear(listBox), h('div', { class: 'small muted mb' }, fs.length + ' fichier(s)' + (fs.length !== files.length ? ' sur ' + files.length : '')),
+        fs.length ? h('div', { class: 'list' }, fs.map((f) => h('button', { class: 'row', onclick: () => choose(f) },
+          icon(f.mimeType === 'application/pdf' ? 'file' : 'camera', 20),
           h('span', { class: 'row-main' }, h('span', { class: 'row-t fname' }, f.name), h('span', { class: 'row-s' }, [f._path, fmtShort(f.modifiedTime), f.size ? fmtSize(Number(f.size)) : null].filter(Boolean).join(' · '))),
-          h('span', { class: 'btn btn-sm btn-primary' }, 'Choisir')))) : h('div', { class: 'empty' }, 'Aucun PDF dans le dossier du projet.'));
-      } catch (e) { put(clear(body), h('div', { class: 'alert' }, e.message)); }
+          h('span', { class: 'btn btn-sm btn-primary' }, 'Choisir')))) : h('div', { class: 'empty' }, files.length ? 'Aucun fichier ne correspond.' : 'Aucun PDF ni photo dans le dossier du projet.'));
+    }
+    const showAll = async () => {
+      put(clear(body), h('div', { class: 'drive-filters' }, search, sortSel, kindSeg), listBox);
+      if (!files) {
+        put(clear(listBox), h('div', { class: 'small muted' }, 'Recherche des PDF et photos du projet…'));
+        try { files = await allPlans(p.drive.id, (n) => { if (listBox.firstChild) listBox.firstChild.textContent = 'Recherche… ' + n + ' dossier(s) parcourus'; }); }
+        catch (e) { put(clear(listBox), h('div', { class: 'alert' }, e.message)); return; }
+      }
+      drawList();
     };
     const showBrowse = () => put(clear(body), browser(p, { pick: true, onPick: choose }));
     const seg = h('div', { class: 'seg mb', role: 'group' },
-      h('button', { 'aria-pressed': 'true', onclick: (e) => { e.currentTarget.setAttribute('aria-pressed', 'true'); e.currentTarget.nextSibling.setAttribute('aria-pressed', 'false'); showAll(); } }, 'Tous les PDF du projet'),
+      h('button', { 'aria-pressed': 'true', onclick: (e) => { e.currentTarget.setAttribute('aria-pressed', 'true'); e.currentTarget.nextSibling.setAttribute('aria-pressed', 'false'); showAll(); } }, 'PDF et photos du projet'),
       h('button', { 'aria-pressed': 'false', onclick: (e) => { e.currentTarget.setAttribute('aria-pressed', 'true'); e.currentTarget.previousSibling.setAttribute('aria-pressed', 'false'); showBrowse(); } }, 'Parcourir les dossiers'));
     const s = sheet({ title, wide: true, body: [seg, body], onClose: () => { if (!done) res(null); } });
     showAll();
