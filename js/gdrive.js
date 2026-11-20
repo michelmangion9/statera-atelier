@@ -1,0 +1,251 @@
+// Google Drive : connexion (OAuth 2.0 par redirection, compatible app installée sur iPad/iPhone),
+// dossier du projet, navigation, téléchargement, dépôt des documents générés par l'Atelier.
+import { h, put, clear, icon, toast, sheet, fmtShort, fmtSize, confirmBox } from './lib.js';
+import { db } from './db.js';
+import { FOLDERS, SUBFOLDERS, driveFolderName } from './data.js';
+
+export const CLIENT_ID = '801369190574-3fls5l6a0kbumk8usql1s2hsh95hs7vo.apps.googleusercontent.com';
+const SCOPE = 'https://www.googleapis.com/auth/drive';
+const API = 'https://www.googleapis.com/drive/v3';
+const UP = 'https://www.googleapis.com/upload/drive/v3';
+const LS = 'statera-atelier-gdrive';
+const FOLDER = 'application/vnd.google-apps.folder';
+const HINT = 'michel@statera-architecture.fr';
+
+const read = () => { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) { return {}; } };
+const write = (v) => { try { localStorage.setItem(LS, JSON.stringify(v)); } catch (e) { /* stockage */ } };
+
+export const available = () => (location.protocol === 'https:' && !location.hostname.endsWith('claudeusercontent.com')) || location.hostname === 'localhost';
+export function token() { const s = read(); return s.token && s.exp > Date.now() + 60000 ? s.token : null; }
+export const connected = () => !!read().email;
+export const account = () => read().email || '';
+
+// Retour de Google : #access_token=…&expires_in=…&state=…  (appelé par le routeur avant tout affichage)
+export function handleRedirect() {
+  const hsh = location.hash || '';
+  if (!/access_token=|error=/.test(hsh) || /^#\//.test(hsh)) return false;
+  const q = new URLSearchParams(hsh.slice(1));
+  let back = '#/reglages';
+  try { const st = JSON.parse(atob(q.get('state') || '')); if (st.back) back = st.back; } catch (e) { /* état */ }
+  const s = read();
+  if (q.get('access_token')) {
+    s.token = q.get('access_token'); s.exp = Date.now() + (Number(q.get('expires_in')) || 3600) * 1000;
+    write(s);
+    whoami().catch(() => {});
+  } else toast('Connexion Google annulée');
+  history.replaceState(null, '', location.pathname + back);
+  return true;
+}
+
+export function signIn(back) {
+  const u = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  u.searchParams.set('client_id', CLIENT_ID);
+  u.searchParams.set('redirect_uri', location.origin + '/');
+  u.searchParams.set('response_type', 'token');
+  u.searchParams.set('scope', SCOPE);
+  u.searchParams.set('include_granted_scopes', 'true');
+  u.searchParams.set('login_hint', read().email || HINT);
+  u.searchParams.set('state', btoa(JSON.stringify({ back: back || location.hash || '#/projets' })));
+  location.href = u.toString();
+}
+export function signOut() {
+  const t = read().token;
+  if (t) fetch('https://oauth2.googleapis.com/revoke?token=' + encodeURIComponent(t), { method: 'POST' }).catch(() => {});
+  write({});
+}
+
+class NeedAuth extends Error {}
+async function api(path, opts = {}, raw = false) {
+  const t = token();
+  if (!t) throw new NeedAuth('Connexion Google nécessaire');
+  const r = await fetch(path.startsWith('http') ? path : API + path, Object.assign({}, opts, { headers: Object.assign({ Authorization: 'Bearer ' + t }, opts.headers || {}) }));
+  if (r.status === 401) { const s = read(); delete s.token; write(s); throw new NeedAuth('Session Google expirée'); }
+  if (!r.ok) { let m = ''; try { m = (await r.json()).error.message; } catch (e) { /* texte */ } throw new Error('Drive : ' + (m || r.status)); }
+  return raw ? r : r.json();
+}
+const qs = (o) => Object.entries(o).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+export async function whoami() {
+  const j = await api('/about?fields=user(emailAddress,displayName)');
+  const s = read(); s.email = j.user.emailAddress; s.name = j.user.displayName; write(s);
+  return s.email;
+}
+
+export async function list(folderId) {
+  let out = [], pageToken = '';
+  do {
+    const j = await api('/files?' + qs({ q: "'" + esc(folderId) + "' in parents and trashed=false", fields: 'nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,iconLink,thumbnailLink)', orderBy: 'folder,name', pageSize: 200, supportsAllDrives: true, includeItemsFromAllDrives: true, pageToken }));
+    out = out.concat(j.files || []); pageToken = j.nextPageToken || '';
+  } while (pageToken);
+  return out;
+}
+export const isFolder = (f) => f.mimeType === FOLDER;
+
+export async function findFolders(text) {
+  const j = await api('/files?' + qs({ q: "mimeType='" + FOLDER + "' and trashed=false and name contains '" + esc(text) + "'", fields: 'files(id,name,parents,modifiedTime)', pageSize: 20, supportsAllDrives: true, includeItemsFromAllDrives: true }));
+  return j.files || [];
+}
+async function child(parentId, name, create) {
+  const j = await api('/files?' + qs({ q: "'" + esc(parentId) + "' in parents and mimeType='" + FOLDER + "' and trashed=false and name='" + esc(name) + "'", fields: 'files(id,name)', supportsAllDrives: true, includeItemsFromAllDrives: true }));
+  if (j.files && j.files[0]) return j.files[0].id;
+  if (!create) return null;
+  const c = await api('/files?supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, mimeType: FOLDER, parents: [parentId] }) });
+  return c.id;
+}
+
+export async function download(f) {
+  if (/^application\/vnd\.google-apps\./.test(f.mimeType)) {
+    const r = await api('/files/' + f.id + '/export?mimeType=application%2Fpdf', {}, true);
+    return new File([await r.blob()], f.name + '.pdf', { type: 'application/pdf' });
+  }
+  const r = await api('/files/' + f.id + '?alt=media&supportsAllDrives=true', {}, true);
+  const b = await r.blob();
+  return new File([b], f.name, { type: f.mimeType || b.type });
+}
+
+export async function upload(parentId, blob, name, existingId) {
+  const meta = existingId ? { name } : { name, parents: [parentId] };
+  const fd = new FormData();
+  fd.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+  fd.append('file', blob);
+  return api(UP + '/files' + (existingId ? '/' + existingId : '') + '?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink', { method: existingId ? 'PATCH' : 'POST', body: fd });
+}
+
+// Dossier Drive d'un sous-dossier de l'Atelier (00_ADMIN, 02_ESQ › 03_Emis…) ; créé au besoin
+export async function folderFor(p, folder, sub) {
+  if (!p.drive || !p.drive.id) throw new Error('Projet non relié au Drive');
+  p.drive.map = p.drive.map || {};
+  const key = folder + '/' + (sub || '');
+  if (p.drive.map[key]) return p.drive.map[key];
+  let id = await child(p.drive.id, folder, true);
+  if (sub) id = await child(id, sub, true);
+  p.drive.map[key] = id; await db.put('projects', p);
+  return id;
+}
+
+// Crée l'arborescence STATERA complète dans Mon Drive › AAAA › AAAA-NNN_NOM
+export async function createProjectTree(p) {
+  const year = String(p.code || '').slice(0, 4) || String(new Date().getFullYear());
+  const yearId = await child('root', year, true);
+  const rootId = await child(yearId, driveFolderName(p), true);
+  p.drive = { id: rootId, name: driveFolderName(p), path: 'Mon Drive › ' + year + ' › ' + driveFolderName(p), map: {} };
+  for (const f of FOLDERS) {
+    const fid = await child(rootId, f.id, true);
+    p.drive.map[f.id + '/'] = fid;
+    if (f.phase) for (const s of SUBFOLDERS) p.drive.map[f.id + '/' + s.id] = await child(fid, s.id, true);
+  }
+  await db.put('projects', p);
+  return p.drive;
+}
+
+// Envoie au Drive un document généré par l'Atelier (CR, PV, fiche, plan annoté…)
+const syncing = new Set();
+export async function pushFile(p, rec) {
+  if (!token() || !p.drive || !p.drive.id || !rec.blob || syncing.has(rec.id)) return false;
+  syncing.add(rec.id);
+  try {
+    const parent = await folderFor(p, rec.folder, FOLDERS.find((f) => f.id === rec.folder && f.phase) ? (rec.sub || '03_Emis') : '');
+    let existing = rec.driveId;
+    if (!existing) { // même nom déjà présent (document régénéré) : on remplace au lieu de dupliquer
+      const j = await api('/files?' + qs({ q: "'" + esc(parent) + "' in parents and trashed=false and name='" + esc(rec.name) + "'", fields: 'files(id)', supportsAllDrives: true, includeItemsFromAllDrives: true }));
+      existing = j.files && j.files[0] && j.files[0].id;
+    }
+    const r = await upload(parent, rec.blob, rec.name, existing);
+    rec.driveId = r.id; rec.driveLink = r.webViewLink; rec.driveAt = new Date().toISOString();
+    await db.put('files', rec);
+    return true;
+  } finally { syncing.delete(rec.id); }
+}
+export async function pushPending(p) {
+  if (!token() || !p.drive || !p.drive.id) return 0;
+  const files = (await db.by('files', 'projectId', p.id)).filter((f) => f.source && f.source !== 'import' && f.source !== 'drive' && !f.driveId);
+  let n = 0;
+  for (const f of files) { try { if (await pushFile(p, f)) n++; } catch (e) { /* on réessaiera */ } }
+  return n;
+}
+// Dès qu'un document est généré, il part dans le Drive si la session Google est ouverte
+window.addEventListener('atelier:file-saved', async (e) => {
+  const rec = e.detail;
+  if (!rec || !rec.projectId || rec.source === 'import' || rec.source === 'drive' || rec.driveId || syncing.has(rec.id) || !token()) return;
+  try { const p = await db.get('projects', rec.projectId); if (p && p.drive && p.drive.id && await pushFile(p, rec)) toast('Envoyé dans le Drive : ' + rec.name); } catch (er) { /* réessai plus tard */ }
+});
+
+/* ---------- Interface ---------- */
+
+export function connectBox(back) {
+  if (!available()) return h('div', { class: 'small muted' }, 'La connexion Google fonctionne sur la version en ligne (statera-atelier.vercel.app).');
+  if (token()) return h('div', { class: 'flexb' }, h('span', { class: 'small' }, icon('check', 16), ' Connecté · ' + (account() || 'Google Drive')),
+    h('button', { class: 'btn btn-sm btn-line', onclick: () => { signOut(); toast('Drive déconnecté'); window.dispatchEvent(new HashChangeEvent('hashchange')); } }, 'Déconnecter'));
+  return h('div', { class: 'stack' },
+    connected() ? h('div', { class: 'small muted' }, 'Session expirée (elle dure une heure) : reconnecte-toi, c’est immédiat.') : null,
+    h('button', { class: 'btn btn-primary', style: { alignSelf: 'flex-start' }, onclick: () => signIn(back) }, icon('folder', 18), connected() ? 'Reconnecter Google Drive' : 'Connecter Google Drive'));
+}
+
+// Relier un projet à son dossier Drive : recherche par n° d'affaire, ou création de l'arborescence
+export async function linkProject(p) {
+  const code = String(p.code || '').trim();
+  let found = [];
+  try { found = code ? await findFolders(code) : []; } catch (e) { if (e instanceof NeedAuth) { signIn(location.hash); return; } toast(e.message); return; }
+  return new Promise((res) => {
+    const s = sheet({
+      title: 'Dossier Drive du projet',
+      body: [
+        h('div', { class: 'small muted' }, found.length ? 'Dossiers trouvés pour « ' + code + ' » :' : 'Aucun dossier « ' + code + ' » trouvé dans ton Drive.'),
+        found.length ? h('div', { class: 'list' }, found.map((f) => h('button', { class: 'row', onclick: async () => {
+          p.drive = { id: f.id, name: f.name, path: f.name, map: {} }; await db.put('projects', p); res(true); s.close(); toast('Projet relié à « ' + f.name + ' »');
+        } }, icon('folder', 20), h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, f.name), h('span', { class: 'row-s' }, 'modifié ' + fmtShort(f.modifiedTime))), icon('chev', 18)))) : null,
+        h('button', { class: 'btn btn-line', onclick: async () => {
+          if (!await confirmBox('Créer « ' + driveFolderName(p) + ' » avec toute l’arborescence STATERA dans Mon Drive › ' + (code.slice(0, 4) || 'AAAA') + ' ?', 'Créer')) return;
+          toast('Création des dossiers…');
+          try { await createProjectTree(p); res(true); s.close(); toast('Arborescence créée dans le Drive'); } catch (e) { toast(e.message); }
+        } }, icon('plus', 18), 'Créer l’arborescence STATERA dans le Drive')],
+      onClose: () => res(false)
+    });
+  });
+}
+
+// Explorateur Drive (dans l'onglet Fichiers, ou en fenêtre pour choisir un plan)
+export function browser(p, { startId, startName, pick, onPick, actions } = {}) {
+  const trail = [{ id: startId || p.drive.id, name: startName || p.drive.name }];
+  const box = h('div', { class: 'drive' });
+  async function draw() {
+    const cur = trail[trail.length - 1];
+    put(clear(box), h('div', { class: 'small muted' }, 'Chargement du Drive…'));
+    let items;
+    try { items = await list(cur.id); } catch (e) {
+      clear(box);
+      if (e instanceof NeedAuth) { put(box, h('div', { class: 'alert alert-soft' }, e.message), connectBox(location.hash)); return; }
+      put(box, h('div', { class: 'alert' }, e.message)); return;
+    }
+    const crumbs = h('div', { class: 'drive-crumbs' }, trail.map((t, i) => [i ? h('span', { class: 'muted' }, ' › ') : null,
+      h('button', { class: 'linkish', onclick: () => { trail.splice(i + 1); draw(); } }, t.name)]));
+    const folders = items.filter(isFolder), files = items.filter((f) => !isFolder(f));
+    put(clear(box), crumbs,
+      folders.length ? h('div', { class: 'folders' }, folders.map((f) => h('button', { class: 'folder', onclick: () => { trail.push({ id: f.id, name: f.name }); draw(); } }, icon('folder', 18), h('b', null, f.name)))) : null,
+      !items.length ? h('div', { class: 'empty' }, 'Dossier vide dans le Drive.') : null,
+      files.length ? h('div', { class: 'list' }, files.map((f) => {
+        const pdfOrImg = /pdf|^image\//.test(f.mimeType);
+        return h('div', { class: 'row' },
+          f.thumbnailLink ? h('img', { src: f.thumbnailLink, alt: '', referrerpolicy: 'no-referrer', style: { width: '40px', height: '40px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--rule)' } }) : h('span', { style: { flexShrink: 0, color: '#57544F' } }, icon(/^image\//.test(f.mimeType) ? 'camera' : 'file', 22)),
+          h('a', { class: 'row-main', href: f.webViewLink, target: '_blank', rel: 'noopener', style: { textDecoration: 'none', color: 'inherit' } },
+            h('span', { class: 'row-t fname' }, f.name), h('span', { class: 'row-s' }, [fmtShort(f.modifiedTime), f.size ? fmtSize(Number(f.size)) : null].filter(Boolean).join(' · '))),
+          pick ? (pdfOrImg ? h('button', { class: 'btn btn-sm btn-primary', onclick: () => onPick(f) }, 'Choisir') : null)
+            : (actions ? actions(f, pdfOrImg) : null));
+      })) : null);
+  }
+  draw();
+  box.refresh = draw;
+  box.current = () => trail[trail.length - 1];
+  return box;
+}
+
+export function pickFromDrive(p, title = 'Choisir un plan dans le Drive') {
+  return new Promise((res) => {
+    let done = false;
+    const s = sheet({ title, wide: true, body: [browser(p, { pick: true, onPick: async (f) => {
+      done = true; s.close(); toast('Téléchargement de « ' + f.name + ' »…');
+      try { res(await download(f)); } catch (e) { toast(e.message); res(null); }
+    } })], onClose: () => { if (!done) res(null); } });
+  });
+}

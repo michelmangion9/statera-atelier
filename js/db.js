@@ -80,6 +80,7 @@ export const db = {
         err.cause = e2; throw err;
       }
     }
+    if (store === 'files' && typeof window !== 'undefined') { try { window.dispatchEvent(new CustomEvent('atelier:file-saved', { detail: obj })); } catch (e) { /* rien */ } }
     return obj;
   },
   async del(store, key) {

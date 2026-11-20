@@ -3,10 +3,20 @@
 import { h, put, clear, icon, uid, sheet, toast, pickFiles, fmtShort, fmtSize, confirmBox, shareOrDownload, todayISO, blobURL } from '../lib.js';
 import { db } from '../db.js';
 import { FOLDERS, SUBFOLDERS, DOC_TYPES, PHASES, phase, fileName, fileCode, normFolder, driveFolderName } from '../data.js';
+import * as gd from '../gdrive.js';
 
 const SOURCE = { note: 'CR de rendez-vous', reunion: 'CR de chantier', validation: 'Validation signée', plan: 'Plan annoté', rapport: 'Rapport de réserves', import: null };
 
-export function render(body, { project: p, files, params }) {
+export function render(body, ctx) {
+  const { project: p, params } = ctx;
+  const mode = params.q.v || (gd.available() && gd.connected() ? 'drive' : 'local');
+  const seg = h('div', { class: 'seg mb', role: 'group', 'aria-label': 'Source' },
+    [['drive', 'Google Drive'], ['local', 'Sur l’appareil']].map(([id, l]) => h('button', { 'aria-pressed': String(mode === id), onclick: () => { location.hash = '#/p/' + p.id + '/fichiers?v=' + id; } }, l)));
+  if (mode === 'drive') return driveView(body, p, seg);
+  return localView(body, ctx, seg);
+}
+
+function localView(body, { project: p, files, params }, seg) {
   files.forEach((f) => { f.folder = normFolder(f.folder); });
   let folder = params.q.f ? normFolder(params.q.f) : phase(p.phase).dossier;
   let sub = 'tous';
@@ -106,9 +116,44 @@ export function render(body, { project: p, files, params }) {
     });
   }
 
-  put(body,
-    h('div', { class: 'alert alert-soft mb small' }, h('span', null, 'Même arborescence que le dossier du projet dans ton Google Drive : Mon Drive › ' + (String(p.code || '').slice(0, 4) || 'AAAA') + ' › ' + driveFolderName(p) + '. La synchronisation automatique sera activée à la mise en ligne.')),
+  put(body, seg,
+    h('div', { class: 'alert alert-soft mb small' }, h('span', null, 'Copies gardées sur cet appareil (utilisables hors ligne), rangées comme le Drive : ' + driveFolderName(p) + '. Les documents produits par l’Atelier partent aussi dans le Drive quand il est connecté.')),
     h('div', { class: 'folders' }, folderBtns),
     listBox);
   draw();
+}
+
+function driveView(body, p, seg) {
+  clear(body).appendChild(seg);
+  if (!gd.available()) { put(body, h('div', { class: 'alert' }, 'Google Drive est accessible depuis la version en ligne : statera-atelier.vercel.app')); return; }
+  if (!gd.token()) { put(body, h('section', { class: 'card stack' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Google Drive'), h('div', { class: 'small' }, 'Connecte ton Drive pour voir et utiliser les documents du projet.'), gd.connectBox(location.hash))); return; }
+  if (!p.drive || !p.drive.id) {
+    put(body, h('section', { class: 'card stack' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Relier le projet à son dossier Drive'),
+      h('div', { class: 'small' }, 'Je cherche le dossier « ' + (p.code || 'n° d’affaire') + ' » dans ton Drive, ou je crée l’arborescence STATERA complète.'),
+      h('button', { class: 'btn btn-primary', style: { alignSelf: 'flex-start' }, onclick: async () => { if (await gd.linkProject(p)) driveView(body, p, seg); } }, icon('folder', 18), 'Relier au Drive')));
+    return;
+  }
+  const status = h('span', { class: 'small muted' });
+  gd.pushPending(p).then((n) => { if (n) { status.textContent = n + ' document(s) de l’Atelier envoyé(s) dans le Drive'; br.refresh(); } }).catch(() => {});
+  const br = gd.browser(p, { actions: (f, pdfOrImg) => h('div', { class: 'actions', style: { flexShrink: 0 } },
+    pdfOrImg ? h('button', { class: 'btn btn-sm btn-line', onclick: async () => {
+      toast('Téléchargement…');
+      try { const file = await gd.download(f); const { importPlanBlobs } = await import('./plans.js'); const c = await importPlanBlobs(p, [file]); if (c.length) { c[0].driveId = f.id; await db.put('plans', c[0]); location.hash = '#/p/' + p.id + '/plans/' + c[0].id; } } catch (e) { toast(e.message); }
+    } }, icon('plan', 16), 'Plan') : null,
+    h('button', { class: 'btn btn-sm btn-ghost btn-icon', 'aria-label': 'Garder une copie sur l’appareil', title: 'Copie hors ligne', onclick: async () => {
+      try { const file = await gd.download(f); const blob = new Blob([await file.arrayBuffer()], { type: file.type }); await db.put('files', { id: uid(), projectId: p.id, folder: '01_DONNEES_ENTREE', name: file.name, mime: blob.type, size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'drive', driveId: f.id }); toast('Copie gardée sur l’appareil'); } catch (e) { toast(e.message); }
+    } }, icon('download', 18))) });
+  put(body,
+    h('div', { class: 'flexb mb' },
+      h('div', null, h('div', { class: 'small muted' }, 'Google Drive · ' + (gd.account() || '')), h('div', { class: 'title-sm' }, p.drive.name), status),
+      h('div', { class: 'actions' },
+        h('button', { class: 'btn', onclick: async () => {
+          const picked = await pickFiles({ accept: '*/*', multiple: true }); if (!picked.length) return;
+          const cur = br.current(); toast('Envoi dans « ' + cur.name + ' »…');
+          for (const f of picked) { try { await gd.upload(cur.id, new Blob([await f.arrayBuffer()], { type: f.type || 'application/octet-stream' }), f.name); } catch (e) { toast(e.message); } }
+          toast(picked.length + ' fichier(s) ajouté(s) au Drive'); br.refresh();
+        } }, icon('plus', 18), 'Ajouter ici'),
+        h('button', { class: 'btn btn-line', onclick: async () => { const n = await gd.pushPending(p); toast(n ? n + ' document(s) envoyé(s)' : 'Tout est déjà dans le Drive'); br.refresh(); } }, 'Synchroniser'),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: async () => { if (await gd.linkProject(p)) driveView(body, p, seg); } }, 'Changer de dossier'))),
+    br);
 }

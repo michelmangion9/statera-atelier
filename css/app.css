@@ -349,3 +349,19 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .listen-live{min-height:20px;font-style:italic;color:var(--ink3);font-size:14px;margin-bottom:4px}
 .listen-tx{font-size:15px}
 .listen-steps{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0 8px}
+
+/* Google Drive */
+.drive-crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin:4px 0 12px;font-size:14px}
+.linkish{background:none;border:0;padding:4px 2px;color:var(--stone);font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--beton)}
+.linkish:last-child{text-decoration:none;font-weight:500}
+
+/* Croquis : fond uni par défaut, points en option, plein écran */
+.sketch-wrap { background: #fff; }
+.sketch-dots { background-color: #fff; background-image: radial-gradient(circle, #CFCCC5 1px, transparent 1.2px); background-size: 22px 22px; }
+.tool-strong { border-color: var(--stone); }
+.sk-full { position: fixed; inset: 0; z-index: 60; background: var(--chaux); display: flex; flex-direction: column; padding: max(12px, env(safe-area-inset-top)) 16px max(10px, env(safe-area-inset-bottom)); gap: 10px; }
+.sk-full-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sk-full .pen-strip { margin: 0; }
+.sk-full-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.sk-full-stage .sketch-wrap { aspect-ratio: auto; box-shadow: 0 1px 0 var(--rule); }
+.sk-full-hint { text-align: center; }

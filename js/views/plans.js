@@ -10,12 +10,20 @@ export async function importPlanBlobs(project, files, { askMeta = true } = {}) {
     const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
     const isImg = /^image\//.test(f.type);
     if (!isPdf && !isImg) { toast('Format non pris en charge : ' + f.name); continue; }
-    const base = f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+    let base = f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+    // Nommage STATERA : AAMMJJ_CODE_PHASE_TYPE_OBJET_IND → intitulé, phase et indice préremplis
+    const nm = f.name.replace(/\.[^.]+$/, '').match(/^(\d{6})_([A-Z0-9-]+)_([A-Z]{2,4})_([A-Z]{2,4})_(.+)_([A-Z]{1,3})$/i);
+    let phaseId = project.phase, ind = 'A';
+    if (nm) {
+      base = nm[5].replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\B\w/g, (c) => c.toLowerCase());
+      if (PHASES.some((x) => x.id === nm[3].toUpperCase())) phaseId = nm[3].toUpperCase();
+      ind = nm[6].toUpperCase();
+    }
     toast('Lecture de « ' + f.name + ' »…');
     let blob;
     try { blob = new Blob([await f.arrayBuffer()], { type: f.type || (isPdf ? 'application/pdf' : 'image/jpeg') }); }
     catch (e) { toast('Fichier inaccessible : ' + f.name + ' (s’il est sur Google Drive, attends la fin du téléchargement)'); continue; }
-    const plan = { id: uid(), projectId: project.id, nom: base, phase: project.phase, indice: 'A', kind: isPdf ? 'pdf' : 'image', mime: blob.type, blob, size: blob.size, createdAt: new Date().toISOString() };
+    const plan = { id: uid(), projectId: project.id, nom: base, phase: phaseId, indice: ind, fileName: f.name, kind: isPdf ? 'pdf' : 'image', mime: blob.type, blob, size: blob.size, createdAt: new Date().toISOString() };
     try { plan.pages = await pageCount(plan); } catch (e) { toast('PDF illisible : ' + f.name + ' — ' + ((e && e.message) || e)); continue; }
     try { plan.thumb = await planThumb(plan); } catch (e) { plan.thumb = null; }
     if (askMeta) { const ok = await editPlan(plan, true); if (!ok) continue; }
@@ -52,11 +60,23 @@ export function render(body, { project: p, plans, points }) {
     const c = await importPlanBlobs(p, files);
     if (c.length) { toast(c.length + ' plan(s) ajouté(s)'); window.dispatchEvent(new HashChangeEvent('hashchange')); }
   };
+  function driveBtn() {
+    return h('button', { class: 'btn btn-line', onclick: async () => {
+      const gd = await import('../gdrive.js');
+      if (!gd.available()) { toast('Disponible sur la version en ligne'); return; }
+      if (!gd.token()) { gd.signIn(location.hash); return; }
+      if (!p.drive || !p.drive.id) { if (!await gd.linkProject(p)) return; }
+      const f = await gd.pickFromDrive(p);
+      if (!f) return;
+      const c = await importPlanBlobs(p, [f]);
+      if (c.length) { toast('Plan importé depuis le Drive'); window.dispatchEvent(new HashChangeEvent('hashchange')); }
+    } }, icon('folder', 18), 'Depuis le Drive');
+  }
   const sorted = plans.slice().sort((a, b) => PHASES.findIndex((x) => x.id === b.phase) - PHASES.findIndex((x) => x.id === a.phase) || (a.nom || '').localeCompare(b.nom || ''));
   put(clear(body), 
     h('div', { class: 'flexb mb' },
       h('div', { class: 'small muted' }, 'Ouvrez un plan pour l’annoter, poser des points numérotés par lot, ou exporter le plan annoté.'),
-      h('button', { class: 'btn btn-primary', onclick: add }, icon('plus', 18), 'Importer un plan')),
+      h('div', { class: 'actions' }, driveBtn(), h('button', { class: 'btn btn-primary', onclick: add }, icon('plus', 18), 'Importer un plan'))),
     !plans.length ? h('div', { class: 'empty' }, h('div', { class: 'title-sm' }, 'Aucun plan'),
       h('div', null, 'Importez un PDF (export AutoCAD, planche de permis, plan EXE) ou une photo de plan.'),
       h('button', { class: 'btn btn-primary', onclick: add }, icon('plus', 18), 'Importer un plan'))

@@ -4,6 +4,8 @@ import { db, STORES, usage, askPersist } from '../db.js';
 import { CABINET_DEFAULT, MENTION_CR } from '../data.js';
 
 export async function render(view) {
+  const gd = await import('../gdrive.js');
+  const gdConnect = gd.connectBox('#/reglages');
   const cab = Object.assign({}, CABINET_DEFAULT, (await db.setting('cabinet', {})) || {});
   const mention = (await db.setting('mentionCR', null)) || MENTION_CR;
   const lastBackup = await db.setting('lastBackup', null);
@@ -45,12 +47,9 @@ export async function render(view) {
           (() => { const st = h('div', { class: 'small muted' }, 'Vérification…'); fetch('/api/resume', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { st.textContent = j && j.configured ? 'Gemini est activé : le résumé des rendez-vous se fait automatiquement.' : 'Gemini n’est pas encore activé sur le serveur : le résumé passe par un copier-coller dans Gemini.'; }).catch(() => { st.textContent = 'Hors ligne ou aperçu : le résumé passe par un copier-coller dans Gemini.'; }); return st; })(),
           (() => { const i = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'Code d’accès IA (ATELIER_TOKEN)' }); try { i.value = localStorage.getItem('statera-atelier-ia') || ''; } catch (e) { /* stockage */ } i.addEventListener('change', () => { try { localStorage.setItem('statera-atelier-ia', i.value.trim()); toast('Code enregistré sur cet appareil'); } catch (e) { /* stockage */ } }); return fld('Code d’accès IA', i); })()),
         h('section', { class: 'card stack' },
-          h('h2', { class: 'section-t', style: { margin: 0 } }, 'Connexions Google'),
-          h('div', { class: 'small', style: { lineHeight: 1.55 } }, 'Prévu à la mise en ligne, avec votre compte Google Workspace :'),
-          h('div', { class: 'kv' }, h('span', null, 'Drive'), h('span', { class: 'small' }, 'copie automatique des fichiers dans le dossier du projet')),
-          h('div', { class: 'kv' }, h('span', null, 'Agenda'), h('span', { class: 'small' }, 'RDV et réunions de chantier, notes pré-remplies')),
-          h('div', { class: 'kv' }, h('span', null, 'Gmail'), h('span', { class: 'small' }, 'envoi direct des CR par lot depuis contact@')),
-          h('div', { class: 'small muted' }, 'D’ici là, tout fonctionne sur l’appareil, hors ligne compris ; les PDF se partagent par la feuille de partage (Mail, Drive, Fichiers).'))),
+          h('h2', { class: 'section-t', style: { margin: 0 } }, 'Google Drive'),
+          h('div', { class: 'small', style: { lineHeight: 1.55 } }, 'Chaque projet est relié à son dossier du Drive : tu y navigues depuis l’onglet Fichiers, tu importes les plans directement, et les comptes rendus, PV et fiches générés y sont déposés tout seuls (03_Emis, 04_Valide).'),
+          gdConnect)),
       h('div', { class: 'stack' },
         h('section', { class: 'card stack' },
           h('h2', { class: 'section-t', style: { margin: 0 } }, 'Sauvegarde'),

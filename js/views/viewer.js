@@ -4,7 +4,7 @@ import { h, put, clear, icon, uid, debounce, toast, clamp, fmtShort, todayISO, c
 import { db } from '../db.js';
 import { LOTS, lot as lotOf, POINT_STATUS, POINT_NATURE, phase, fileName, fileCode } from '../data.js';
 import { renderPlan } from '../pdfkit.js';
-import { strokeEl, strokePath, renderStrokes, penPicker, strokeStyle } from '../ink.js';
+import { strokeEl, strokePath, renderStrokes, penPicker, strokeStyle, shaper, nearEnd } from '../ink.js';
 import { addPhotos, photoThumb, openPhotoEditor } from './photo.js';
 import { loadProject } from './project.js';
 
@@ -50,7 +50,7 @@ export async function renderViewer(view, params) {
 
   const TOOLS = [
     ['nav', 'Naviguer', 'hand'], ['point', 'Point', 'pin'], ['stylo', 'Stylo', 'pen'], ['feutre', 'Feutre', 'marker'],
-    ['surligneur', 'Surligneur', 'highlight'], ['texte', 'Texte', 'text'], ['gomme', 'Gomme', 'eraser']
+    ['surligneur', 'Surligneur', 'highlight'], ['regle', 'Règle', 'fit'], ['texte', 'Texte', 'text'], ['gomme', 'Gomme', 'eraser']
   ];
   const toolBtns = TOOLS.map(([id, label, ic]) => h('button', { class: 'tool', 'aria-pressed': String(mode === id), 'data-mode': id, title: label, onclick: () => setMode(id) }, ic ? icon(ic, 18) : null, h('span', { class: ic ? 'tool-l' : '' }, label)));
   const picker = penPicker({});
@@ -275,11 +275,11 @@ export async function renderViewer(view, params) {
     mode = m;
     toolBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
     sheetEl.classList.toggle('erasing', m === 'gomme');
-    const drawing = ['stylo', 'feutre', 'surligneur'].includes(m);
+    const drawing = ['stylo', 'feutre', 'surligneur', 'regle'].includes(m);
     picker.el.hidden = !drawing;
-    if (drawing) picker.setMode(m);
+    if (drawing) picker.setMode(m === 'regle' ? 'stylo' : m);
     requestAnimationFrame(() => { if (renderedW) apply(); });
-    const hints = { point: 'Touchez le plan pour poser un point', texte: 'Touchez le plan pour écrire un texte', gomme: 'Touchez un trait ou un texte pour l’effacer' };
+    const hints = { regle: 'Traits droits ; partez d’une extrémité pour enchaîner. Avec les autres stylos : gardez le stylet immobile ½ s pour redresser le trait', point: 'Touchez le plan pour poser un point', texte: 'Touchez le plan pour écrire un texte', gomme: 'Touchez un trait ou un texte pour l’effacer' };
     hint.hidden = !hints[m]; hint.textContent = hints[m] || '';
     stage.style.cursor = m === 'nav' ? 'grab' : 'crosshair';
   }
@@ -290,7 +290,7 @@ export async function renderViewer(view, params) {
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
     if (ptrs.size === 2) { cancelStroke(); tap = null; startPinch(); return; }
     if (ptrs.size > 2) return;
-    const drawMode = ['stylo', 'feutre', 'surligneur'].includes(mode);
+    const drawMode = ['stylo', 'feutre', 'surligneur', 'regle'].includes(mode);
     const canDraw = e.pointerType === 'pen' || e.pointerType === 'mouse' || (e.pointerType === 'touch' && !penSeen);
     if (drawMode && canDraw) { startStroke(e); return; }
     if (mode === 'gomme' && canDraw) { eraseAt(e); gesture = { erase: true }; return; }
@@ -303,7 +303,10 @@ export async function renderViewer(view, params) {
     if (gesture && gesture.pinch && ptrs.size >= 2) { movePinch(); return; }
     if (stroke && e.pointerId === stroke.pid) {
       const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      const last = toUnits(evs[evs.length - 1]);
+      if (stroke.shp.active) { stroke.shp.move(stroke, last); return; }
       evs.forEach((ev) => stroke.pts.push(toUnits(ev)));
+      if (stroke.shp.move(stroke, last)) return;
       stroke.el.setAttribute('d', strokePath(stroke));
       return;
     }
@@ -356,13 +359,17 @@ export async function renderViewer(view, params) {
     apply();
   }
   function startStroke(e) {
-    stroke = Object.assign({ id: uid(), pen: mode, pts: [toUnits(e)], pressure: e.pointerType === 'pen', pid: e.pointerId }, strokeStyle(mode));
+    const pen = mode === 'regle' ? 'stylo' : mode;
+    stroke = Object.assign({ id: uid(), pen, pts: [toUnits(e)], pressure: e.pointerType === 'pen', pid: e.pointerId }, strokeStyle(pen));
+    stroke.shp = shaper((st) => st.el.setAttribute('d', strokePath(st)), () => 7 / s);
+    if (mode === 'regle') { const p0 = toUnits(e); stroke.shp.ruler(stroke, nearEnd(pageData().strokes, p0, 20 / s) || [p0[0], p0[1], 0.5]); }
     stroke.el = strokeEl(stroke);
     (inkSvg.querySelector('g.strokes') || inkSvg.appendChild(h('g', { class: 'strokes' }))).appendChild(stroke.el);
   }
-  function cancelStroke() { if (stroke) { stroke.el.remove(); stroke = null; } }
+  function cancelStroke() { if (stroke) { stroke.shp.end(); stroke.el.remove(); stroke = null; } }
   function finishStroke() {
-    const st = { id: stroke.id, pen: stroke.pen, color: stroke.color, size: stroke.size, pressure: stroke.pressure, pts: stroke.pts.map((q) => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(q[2] * 100) / 100]) };
+    stroke.shp.end();
+    const st = { id: stroke.id, pen: stroke.pen, color: stroke.color, size: stroke.size, pressure: stroke.pressure, shape: stroke.shape, pts: stroke.pts.map((q) => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(q[2] * 100) / 100]) };
     stroke = null;
     pageData().strokes.push(st);
     undo.push({ add: st.id });

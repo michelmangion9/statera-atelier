@@ -20,6 +20,7 @@ export const penPrefs = (() => {
   return v;
 })();
 function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(penPrefs)); } catch (e) { /* rien */ } }
+export const savePenPrefs = () => savePrefs();
 // Couleur et taille du prochain trait pour un outil donné
 export function strokeStyle(pen) {
   const base = PENS[pen] || PENS.stylo;
@@ -64,6 +65,19 @@ export function outlineToPath(pts) {
 }
 export function strokePath(s) {
   const pen = PENS[s.pen] || PENS.stylo;
+  if (s.shape) {
+    // Formes nettes : trait d'épaisseur constante, chaque côté tracé séparément pour garder des angles vifs
+    const opt = { size: (s.size || pen.size) * (s.scale || 1), thinning: 0, smoothing: s.shape === 'ellipse' ? 0.5 : 0, streamline: 0, simulatePressure: false, last: true, start: { cap: true }, end: { cap: true } };
+    if (s.shape === 'ellipse') return outlineToPath(getStroke(s.pts, opt));
+    const segs = []; let curSeg = [s.pts[0]];
+    for (let i = 1; i < s.pts.length; i++) {
+      curSeg.push(s.pts[i]);
+      const a = s.pts[i - 1], b = s.pts[i], c = s.pts[i + 1];
+      if (c) { const t1 = Math.atan2(b[1] - a[1], b[0] - a[0]), t2 = Math.atan2(c[1] - b[1], c[0] - b[0]); let d = Math.abs(t1 - t2); if (d > Math.PI) d = 2 * Math.PI - d; if (d > 0.5) { segs.push(curSeg); curSeg = [b]; } }
+    }
+    segs.push(curSeg);
+    return segs.filter((g) => g.length > 1).map((g) => { const a = g[0], b = g[g.length - 1]; return outlineToPath(getStroke([a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0.5], b, b], opt)); }).join(' ');
+  }
   const simulate = !s.pressure;
   const out = getStroke(s.pts, {
     size: (s.size || pen.size) * (s.scale || 1),
@@ -103,8 +117,9 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
   const svg = h('svg', { viewBox: `0 0 1000 ${H}`, preserveAspectRatio: 'none' });
   el.appendChild(svg);
   let list = strokes.slice();
-  let cur = null, penSeen = false;
+  let cur = null, penSeen = false, shp = null;
   const undoStack = [];
+  const tolUnits = () => { const r = svg.getBoundingClientRect(); return r.width ? (6 / r.width) * 1000 : 6; };
   renderStrokes(svg, list);
 
   const toUnits = (e) => {
@@ -123,7 +138,10 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
     const m = mode();
     if (m === 'gomme') { eraseAt(e); return; }
     svg.setPointerCapture(e.pointerId);
-    cur = Object.assign({ id: uid(), pen: m, pts: [toUnits(e)], pressure: e.pointerType === 'pen' }, styleFor(m));
+    const pen = m === 'regle' ? 'stylo' : m;
+    cur = Object.assign({ id: uid(), pen, pts: [toUnits(e)], pressure: e.pointerType === 'pen' }, styleFor(pen));
+    shp = shaper((st) => st.el.setAttribute('d', strokePath(st)), () => tolUnits());
+    if (m === 'regle') { const p0 = toUnits(e); shp.ruler(cur, nearEnd(list, p0, tolUnits() * 3) || [p0[0], p0[1], 0.5]); }
     cur.el = strokeEl(cur);
     svg.querySelector('g.strokes').appendChild(cur.el);
     e.preventDefault();
@@ -131,12 +149,16 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
   svg.addEventListener('pointermove', (e) => {
     if (!cur) { if (mode() === 'gomme' && e.buttons) eraseAt(e); return; }
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    const last = toUnits(evs[evs.length - 1]);
+    if (shp && shp.active) { shp.move(cur, last); return; }
     evs.forEach((ev) => cur.pts.push(toUnits(ev)));
+    if (shp && shp.move(cur, last)) return;
     cur.el.setAttribute('d', strokePath(cur));
   });
   const end = () => {
     if (!cur) return;
-    const s = { id: cur.id, pen: cur.pen, color: cur.color, size: cur.size, pts: cur.pts.map((p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10, Math.round(p[2] * 100) / 100]), pressure: cur.pressure };
+    if (shp) shp.end();
+    const s = { id: cur.id, pen: cur.pen, color: cur.color, size: cur.size, pts: cur.pts.map((p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10, Math.round(p[2] * 100) / 100]), pressure: cur.pressure, shape: cur.shape };
     cur = null;
     if (s.pts.length > 1 || s.pen) { list.push(s); undoStack.push({ add: s.id }); onChange && onChange(list); }
   };
@@ -170,4 +192,73 @@ export function miniSketch(strokes, aspect = 1.414, cls = 'mini') {
   const svg = h('svg', { viewBox: `0 0 1000 ${1000 * aspect}`, class: cls, preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' });
   renderStrokes(svg, strokes || []);
   return svg;
+}
+
+/* ---------- Traits droits et formes ----------
+   Garder le stylet immobile ~½ s en fin de trait : le trait devient droit (aligné à 0°/45°/90° s'il en est proche),
+   un rectangle ou une ellipse tracés à main levée deviennent nets. Outil « Règle » : chaque trait est droit d'office,
+   et un trait qui part de l'extrémité du précédent s'y raccroche (contours de pièces). */
+const HOLD_MS = 480;
+const dense = (a, b, n = 24) => Array.from({ length: n + 1 }, (_, i) => [a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n, 0.5]);
+export function snapAngle(a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+  if (len < 1e-6) return b;
+  const ang = Math.atan2(dy, dx), step = Math.PI / 4, near = Math.round(ang / step) * step;
+  if (Math.abs(ang - near) < (6 * Math.PI) / 180) return [a[0] + Math.cos(near) * len, a[1] + Math.sin(near) * len, b[2]];
+  return b;
+}
+export function recognize(pts) {
+  if (pts.length < 3) return null;
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const diag = Math.hypot(x1 - x0, y1 - y0) || 1;
+  const a = pts[0], b = pts[pts.length - 1];
+  const closed = Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.22 * diag && pts.length > 12;
+  if (closed && (x1 - x0) > 0.08 * diag && (y1 - y0) > 0.08 * diag) {
+    const edge = pts.reduce((m, p) => m + Math.min(Math.abs(p[0] - x0), Math.abs(p[0] - x1), Math.abs(p[1] - y0), Math.abs(p[1] - y1)), 0) / pts.length / diag;
+    if (edge < 0.035) {
+      const c = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+      let out = []; for (let i = 0; i < 4; i++) out = out.concat(dense(c[i], c[i + 1], 12).slice(i ? 1 : 0));
+      return { type: 'rect', pts: out };
+    }
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+    const rs = pts.map((p) => Math.hypot((p[0] - cx) / rx, (p[1] - cy) / ry));
+    const mean = rs.reduce((m, r) => m + r, 0) / rs.length;
+    const sd = Math.sqrt(rs.reduce((m, r) => m + (r - mean) ** 2, 0) / rs.length);
+    if (sd < 0.14) return { type: 'ellipse', pts: Array.from({ length: 73 }, (_, i) => { const t = (i / 72) * Math.PI * 2; return [cx + rx * Math.cos(t), cy + ry * Math.sin(t), 0.5]; }) };
+  }
+  return { type: 'line', pts: dense(a, snapAngle(a, b)) };
+}
+// tol() : distance (en unités du dessin) en dessous de laquelle le stylet est considéré immobile
+export function shaper(redraw, tol) {
+  let timer = null, last = null, mode = null, anchor = null;
+  const fire = (s) => {
+    const r = recognize(s.pts);
+    if (!r) return;
+    s.pts = r.pts; s.pressure = true; s.shape = r.type;
+    mode = r.type === 'line' ? 'line' : 'shape'; anchor = r.pts[0];
+    redraw(s);
+  };
+  return {
+    // à appeler après chaque point ajouté ; renvoie true si le tracé est piloté par la forme
+    move(s, p) {
+      if (mode === 'line') { s.pts = dense(anchor, snapAngle(anchor, p)); redraw(s); return true; }
+      if (mode === 'shape') return true;
+      if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > tol()) { last = p; clearTimeout(timer); timer = setTimeout(() => fire(s), HOLD_MS); }
+      return false;
+    },
+    // outil Règle : trait droit dès le départ
+    ruler(s, start) { mode = 'line'; anchor = start; s.pressure = true; s.shape = 'line'; s.pts = dense(start, start, 1); },
+    end() { clearTimeout(timer); timer = null; },
+    get active() { return mode; }
+  };
+}
+// Raccroche le départ d'un trait « Règle » à l'extrémité d'un trait droit existant
+export function nearEnd(strokes, p, dist) {
+  let best = null, bd = dist;
+  for (const s of strokes) {
+    if (s.shape !== 'line' || !s.pts || !s.pts.length) continue;
+    for (const q of [s.pts[0], s.pts[s.pts.length - 1]]) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = [q[0], q[1], 0.5]; } }
+  }
+  return best;
 }
