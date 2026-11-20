@@ -403,3 +403,4 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .drive-filters select { flex: 0 1 200px; }
 .chk { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 12px; border: 1px solid var(--beton); background: #fff; cursor: pointer; }
 .chk input { width: 20px; height: 20px; accent-color: #161616; }
+.cr-echanges { white-space: pre-wrap; font-size: 14.5px; line-height: 1.55; background: #fff; border: 1px solid var(--rule); padding: 14px 16px; max-height: 420px; overflow: auto; }

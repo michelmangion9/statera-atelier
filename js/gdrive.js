@@ -5,7 +5,7 @@ import { db } from './db.js';
 import { FOLDERS, driveFolderName, folderOf, PHASES } from './data.js';
 
 export const CLIENT_ID = '801369190574-3fls5l6a0kbumk8usql1s2hsh95hs7vo.apps.googleusercontent.com';
-const SCOPE = 'https://www.googleapis.com/auth/drive';
+const SCOPE = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.readonly';
 const API = 'https://www.googleapis.com/drive/v3';
 const UP = 'https://www.googleapis.com/upload/drive/v3';
 const LS = 'statera-atelier-gdrive';
@@ -384,4 +384,107 @@ export function pickFromDrive(p, title = 'Choisir un plan dans le Drive') {
     const s = sheet({ title, wide: true, body: [seg, body], onClose: () => { if (!done) res(null); } });
     showAll();
   });
+}
+
+/* ---------- Demandes clients : Mon Drive › STATERA_DEMANDES › AAAA-MM-JJ_CLIENT_COMMUNE ---------- */
+// Règle inchangée : rien n'est supprimé ni déplacé. Seuls les fichiers créés par l'Atelier (fiche, tableau de suivi) sont mis à jour.
+const DEM_ROOT = 'STATERA_DEMANDES';
+const clean = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+let demRootP = null;
+export function demandesRoot() {
+  const s = read();
+  if (s.demRoot) return Promise.resolve(s.demRoot);
+  // une seule création même si plusieurs écrans synchronisent en même temps
+  if (!demRootP) demRootP = child('root', DEM_ROOT, true).then((id) => { const s2 = read(); s2.demRoot = id; write(s2); return id; }).finally(() => { demRootP = null; });
+  return demRootP;
+}
+const STAT_NOM = { nouvelle: 'Nouvelle', proposition: 'Proposition envoyée', acceptee: 'Acceptée', refusee: 'Sans suite (non aboutie)', projet: 'Aboutie · projet créé' };
+function ficheDemande(d) {
+  const c = d.client, pj = d.projet, hs = d.honSummary;
+  const L = (k, v) => '- ' + k + ' : ' + (v == null || v === '' ? '—' : v);
+  return ['# FICHE DEMANDE · ' + [c.prenom, c.nom].filter(Boolean).join(' ') + (c.societe ? ' (' + c.societe + ')' : ''), '',
+    L('Statut', STAT_NOM[d.statut] || d.statut), L('Reçue le', d.date), L('Origine', d.source === 'questionnaire' ? 'Questionnaire du site' : 'Saisie dans l’Atelier'), d.projectCode ? L('Projet', d.projectCode) : null, '',
+    '## Client', L('Nom', [c.prenom, c.nom].filter(Boolean).join(' ')), L('Société', c.societe), L('Qualité', c.type === 'pro' ? 'Professionnel' : 'Particulier'), L('Adresse', c.adresse), L('E-mail', c.email), L('Téléphone', c.tel), '',
+    '## Projet', L('Intitulé', pj.intitule), L('Commune', pj.commune), L('Adresse du terrain', pj.lieu), L('Cadastre', pj.cadastre),
+    L('Surfaces', [pj.sn ? pj.sn + ' m² neuf' : '', pj.sr ? pj.sr + ' m² rénovation' : '', pj.si ? pj.si + ' m² intérieur' : ''].filter(Boolean).join(' · ')),
+    L('Budget travaux HT', pj.budget ? Number(pj.budget).toLocaleString('fr-FR') + ' €' : ''),
+    L('Accompagnement', [(pj.phases || '').includes('p') ? 'conception jusqu’au permis' : '', (pj.phases || '').includes('s') ? 'suivi de chantier' : '', (pj.phases || '').includes('i') ? 'architecture intérieure' : ''].filter(Boolean).join(', ')),
+    '', '## Programme, souhaits', pj.programme || '—', '',
+    '## Proposition d’honoraires', hs && hs.totalHT ? [L('Référence', hs.ref), L('Total', Number(hs.totalHT).toLocaleString('fr-FR') + ' € HT · ' + Number(hs.totalTTC || 0).toLocaleString('fr-FR') + ' € TTC'), L('Formule', hs.formule === 'temps' ? 'au temps passé' : 'au forfait'), L('Date', hs.date)].join('\n') : '—', '',
+    '## Notes', d.notes || '—', '', '_Mise à jour par STATERA Atelier le ' + new Date().toLocaleString('fr-FR') + '_'].filter((x) => x !== null).join('\n');
+}
+const demLocks = new Map();
+export function syncDemande(d) {
+  const prev = demLocks.get(d.id) || Promise.resolve();
+  const next = prev.catch(() => {}).then(() => syncDemandeNow(d));
+  demLocks.set(d.id, next); next.finally(() => { if (demLocks.get(d.id) === next) demLocks.delete(d.id); });
+  return next;
+}
+async function syncDemandeNow(d) {
+  if (!token()) return false;
+  const root = await demandesRoot();
+  if (!d.drive || !d.drive.id) {
+    const name = [d.date || new Date().toISOString().slice(0, 10), clean(d.client.nom || d.client.societe || 'CLIENT'), clean(d.projet.commune)].filter(Boolean).join('_');
+    d.drive = { id: await child(root, name, true), name };
+  }
+  const r = await upload(d.drive.id, new Blob([ficheDemande(d)], { type: 'text/markdown' }), 'FICHE_DEMANDE.md', d.drive.ficheId);
+  d.drive.ficheId = r.id; d.drive.link = d.drive.link || 'https://drive.google.com/drive/folders/' + d.drive.id;
+  for (const f of d.files || []) {
+    if (f.driveId || !f.blob) continue;
+    let name = f.name, k = 2;
+    while (await findFile(d.drive.id, name)) name = f.name.replace(/(\.[^.]+)?$/, (ext) => '_' + (k++) + (ext || ''));
+    const u = await upload(d.drive.id, f.blob, name); f.driveId = u.id; f.driveName = name;
+  }
+  d.drive.at = new Date().toISOString();
+  return true;
+}
+// Tableau de suivi : en cours / abouties / non abouties
+let indexP = Promise.resolve();
+export function syncDemandesIndex(all) { indexP = indexP.catch(() => {}).then(() => writeIndex(all)); return indexP; }
+async function writeIndex(all) {
+  if (!token()) return;
+  const root = await demandesRoot();
+  const s = read();
+  const row = (d) => '| ' + (d.date || '') + ' | ' + ([d.client.prenom, d.client.nom].filter(Boolean).join(' ') || d.client.societe || '—') + ' | ' + (d.projet.intitule || '—') + ' | ' + (d.projet.commune || '—') + ' | ' + (d.honSummary && d.honSummary.totalHT ? Number(d.honSummary.totalHT).toLocaleString('fr-FR') + ' € HT' : '—') + ' | ' + (STAT_NOM[d.statut] || d.statut) + ' | ' + (d.drive ? d.drive.name : '') + ' |';
+  const head = '| Reçue | Client | Projet | Commune | Proposition | Statut | Dossier |\n|---|---|---|---|---|---|---|';
+  const grp = (t, l) => '## ' + t + ' (' + l.length + ')\n' + (l.length ? head + '\n' + l.map(row).join('\n') : '_Aucune_') + '\n';
+  const by = (f) => all.filter(f).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const txt = '# SUIVI DES DEMANDES · STATERA\n\n' + grp('En cours', by((d) => !['projet', 'refusee'].includes(d.statut))) + '\n' + grp('Abouties', by((d) => d.statut === 'projet')) + '\n' + grp('Non abouties', by((d) => d.statut === 'refusee')) +
+    '\n_Mis à jour par STATERA Atelier le ' + new Date().toLocaleString('fr-FR') + '_\n';
+  let id = s.demIndex;
+  if (!id) { const f = await findFile(root, 'SUIVI_DEMANDES.md'); id = f && f.id; }
+  const r = await upload(root, new Blob([txt], { type: 'text/markdown' }), 'SUIVI_DEMANDES.md', id);
+  const s2 = read(); s2.demIndex = r.id; write(s2);
+}
+// Ajoute un document généré (compte rendu des échanges…) dans le dossier de la demande, sans jamais écraser
+export async function addToDemande(d, blob, name) {
+  await syncDemande(d);
+  let n = name, k = 2;
+  while (await findFile(d.drive.id, n)) n = name.replace(/(\.[^.]+)?$/, (ext) => '_' + (k++) + (ext || ''));
+  return upload(d.drive.id, blob, n);
+}
+
+/* ---------- Gmail (lecture seule) : échanges avec un client ---------- */
+const GM = 'https://gmail.googleapis.com/gmail/v1/users/me';
+const b64u = (s) => { try { const bin = atob(String(s || '').replace(/-/g, '+').replace(/_/g, '/')); return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))); } catch (e) { return ''; } };
+function bodyOf(part) {
+  if (!part) return '';
+  if (part.mimeType === 'text/plain' && part.body && part.body.data) return b64u(part.body.data);
+  for (const p of part.parts || []) { const t = bodyOf(p); if (t) return t; }
+  if (part.mimeType === 'text/html' && part.body && part.body.data) return b64u(part.body.data).replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<br\s*\/?>|<\/p>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \t]+/g, ' ');
+  return '';
+}
+// Retire les citations des réponses (« Le … a écrit : », lignes « > »)
+const unquote = (t) => t.split(/\n(?:Le .{5,120} a écrit\s*:|On .{5,120} wrote:|-----Original Message-----|De :.*\nEnvoyé :)/)[0].split('\n').filter((l) => !/^\s*>/.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+export async function gmailExchanges(email, max = 40) {
+  if (!email) throw new Error('Indique l’e-mail du client dans la fiche');
+  const q = 'from:' + email + ' OR to:' + email;
+  const l = await api(GM + '/messages?' + qs({ q, maxResults: max }));
+  const out = [];
+  for (const m of l.messages || []) {
+    const j = await api(GM + '/messages/' + m.id + '?format=full');
+    const hd = (n) => ((j.payload.headers || []).find((x) => x.name.toLowerCase() === n) || {}).value || '';
+    out.push({ id: m.id, threadId: j.threadId, date: new Date(Number(j.internalDate)).toISOString(), from: hd('from'), to: hd('to'), subject: hd('subject'), snippet: j.snippet || '', text: unquote(bodyOf(j.payload)).slice(0, 4000), out: !hd('from').toLowerCase().includes(email.toLowerCase()) });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
 }
