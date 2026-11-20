@@ -4,7 +4,7 @@ import { h, put, clear, icon, uid, debounce, toast, clamp, fmtShort, todayISO, c
 import { db } from '../db.js';
 import { LOTS, lot as lotOf, POINT_STATUS, POINT_NATURE, phase, fileName, fileCode, destFor } from '../data.js';
 import { renderPlan, renderPdfRegion } from '../pdfkit.js';
-import { strokeEl, strokePath, renderStrokes, penPicker, strokeStyle, shaper, nearEnd, hitStroke } from '../ink.js';
+import { strokeEl, strokePath, renderStrokes, penPicker, strokeStyle, shaper, nearEnd, hitStroke, eraseInStrokes } from '../ink.js';
 import { addPhotos, photoThumb, openPhotoEditor } from './photo.js';
 import { loadProject } from './project.js';
 
@@ -363,7 +363,7 @@ export async function renderViewer(view, params) {
     const drawMode = ['stylo', 'feutre', 'surligneur', 'regle'].includes(mode);
     const canDraw = e.pointerType === 'pen' || e.pointerType === 'mouse' || (e.pointerType === 'touch' && !penSeen);
     if (drawMode && canDraw) { startStroke(e); return; }
-    if (mode === 'gomme') { eraseAt(e); gesture = { erase: true }; return; }
+    if (mode === 'gomme') { gesture = { erase: true }; eraseAt(e); return; }
     tap = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId };
     gesture = { pan: true, sx: e.clientX, sy: e.clientY, tx, ty };
   });
@@ -451,9 +451,11 @@ export async function renderViewer(view, params) {
     const t = document.elementFromPoint(e.clientX, e.clientY);
     // traits : le plus proche du doigt ou du stylet, sur les calques visibles
     const [x, y] = toUnits(e);
-    const st = !(t && t.classList && t.classList.contains('vtext')) && hitStroke(pd.strokes.filter(isVisible), x, y, 14 / s);
-    if (st) {
-      pd.strokes = pd.strokes.filter((q) => q !== st); undo.push({ delStroke: st }); drawInk(); savePage();
+    const onText = t && t.classList && t.classList.contains('vtext');
+    const res = !onText && eraseInStrokes(pd.strokes, x, y, 12 / s, isVisible);
+    if (res) {
+      if (!gesture || !gesture.snapped) { undo.push({ snapStrokes: pd.strokes.slice() }); if (gesture) gesture.snapped = true; }
+      pd.strokes = res; drawInk(); savePage();
     } else if (t && t.classList && t.classList.contains('vtext')) {
       const tt = pd.texts.find((x) => x.id === t.dataset.id);
       pd.texts = pd.texts.filter((x) => x !== tt); undo.push({ delText: tt }); t.remove(); savePage();
@@ -464,6 +466,7 @@ export async function renderViewer(view, params) {
     const pd = pageData();
     if (u.add) pd.strokes = pd.strokes.filter((x) => x.id !== u.add);
     if (u.delStroke) pd.strokes.push(u.delStroke);
+    if (u.snapStrokes) pd.strokes = u.snapStrokes.slice();
     if (u.addText) pd.texts = pd.texts.filter((x) => x.id !== u.addText);
     if (u.delText) pd.texts.push(u.delText);
     drawInk(); drawTexts(); savePage();

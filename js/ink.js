@@ -117,7 +117,7 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
   const svg = h('svg', { viewBox: `0 0 1000 ${H}`, preserveAspectRatio: 'none' });
   el.appendChild(svg);
   let list = strokes.slice();
-  let cur = null, penSeen = false, shp = null;
+  let cur = null, penSeen = false, shp = null, erasing = false;
   const undoStack = [];
   const shown = () => list.filter(visible);
   const tolUnits = () => { const r = svg.getBoundingClientRect(); return r.width ? (6 / r.width) * 1000 : 6; };
@@ -137,7 +137,7 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
     if (e.pointerType === 'pen') penSeen = true;
     if (e.pointerType === 'touch' && (penSeen || !finger())) return; // paume ignorée avec l'Apple Pencil ; le doigt fait défiler
     const m = mode();
-    if (m === 'gomme') { eraseAt(e); return; }
+    if (m === 'gomme') { undoStack.push({ snap: list.slice() }); erasing = true; svg.setPointerCapture(e.pointerId); eraseAt(e); e.preventDefault(); return; }
     svg.setPointerCapture(e.pointerId);
     const pen = m === 'regle' ? 'stylo' : m;
     cur = Object.assign({ id: uid(), pen, pts: [toUnits(e)], pressure: e.pointerType === 'pen' }, styleFor(pen));
@@ -148,7 +148,7 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
     e.preventDefault();
   });
   svg.addEventListener('pointermove', (e) => {
-    if (!cur) { if (mode() === 'gomme' && e.buttons) eraseAt(e); return; }
+    if (!cur) { if (erasing) { const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; evs.forEach(eraseAt); } return; }
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
     const last = toUnits(evs[evs.length - 1]);
     if (shp && shp.active) { shp.move(cur, last); return; }
@@ -157,6 +157,7 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
     cur.el.setAttribute('d', strokePath(cur));
   });
   const end = () => {
+    if (erasing) { erasing = false; const u = undoStack[undoStack.length - 1]; if (u && u.snap && u.snap.length === list.length && u.snap.every((q, i) => q === list[i])) undoStack.pop(); return; }
     if (!cur) return;
     if (shp) shp.end();
     const s = { id: cur.id, pen: cur.pen, color: cur.color, size: cur.size, pts: cur.pts.map((p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10, Math.round(p[2] * 100) / 100]), pressure: cur.pressure, shape: cur.shape };
@@ -169,10 +170,9 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
 
   function eraseAt(e) {
     const [x, y] = toUnits(e);
-    const s = hitStroke(shown(), x, y, tolUnits() * 2.5);
-    if (s) {
-      list = list.filter((q) => q !== s);
-      undoStack.push({ del: s });
+    const res = eraseInStrokes(list, x, y, tolUnits() * 2, visible);
+    if (res) {
+      list = res;
       renderStrokes(svg, shown()); onChange && onChange(list);
     }
   }
@@ -183,6 +183,7 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
       const u = undoStack.pop(); if (!u) return;
       if (u.add) list = list.filter((x) => x.id !== u.add);
       if (u.del) list.push(u.del);
+      if (u.snap) list = u.snap.slice();
       renderStrokes(svg, shown()); onChange && onChange(list);
     },
     refresh() { renderStrokes(svg, shown()); },
@@ -196,6 +197,36 @@ export function miniSketch(strokes, aspect = 1.414, cls = 'mini') {
   const svg = h('svg', { viewBox: `0 0 1000 ${1000 * aspect}`, class: cls, preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' });
   renderStrokes(svg, strokes || []);
   return svg;
+}
+
+// Gomme « feutre » : n'efface que la partie des traits sous la gomme (cercle de rayon r) ; le reste est découpé en morceaux
+export function eraseInStrokes(strokes, x, y, r, canErase = () => true) {
+  let changed = false;
+  const out = [];
+  for (const st of strokes) {
+    const pts = st.pts || [];
+    const rr = r + (st.size || 3) / 2;
+    if (!canErase(st) || !pts.length) { out.push(st); continue; }
+    // boîte englobante : on saute vite les traits loin de la gomme
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of pts) { if (q[0] < x0) x0 = q[0]; if (q[0] > x1) x1 = q[0]; if (q[1] < y0) y0 = q[1]; if (q[1] > y1) y1 = q[1]; }
+    if (x < x0 - rr || x > x1 + rr || y < y0 - rr || y > y1 + rr) { out.push(st); continue; }
+    // points rapprochés pour couper précisément (les formes droites n'ont que leurs sommets)
+    const step = Math.max(0.5, rr / 3), dense = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], d = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.floor(d / step);
+      for (let k = 1; k < n; k++) dense.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, a[2] != null ? a[2] + ((b[2] ?? a[2]) - a[2]) * k / n : 0.5]);
+      dense.push(b);
+    }
+    const hit = dense.map((q) => Math.hypot(q[0] - x, q[1] - y) <= rr);
+    if (!hit.some(Boolean)) { out.push(st); continue; }
+    changed = true;
+    let run = [];
+    const flush = () => { if (run.length > 1) out.push(Object.assign({}, st, { id: uid(), pts: run.map((q) => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round((q[2] ?? 0.5) * 100) / 100]) })); run = []; };
+    dense.forEach((q, i) => { if (hit[i]) flush(); else run.push(q); });
+    flush();
+  }
+  return changed ? out : null;
 }
 
 // Gomme : trait le plus proche du point touché (tolérance en unités du dessin)
