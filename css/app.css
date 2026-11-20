@@ -340,3 +340,12 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .gbtn small{display:block;color:var(--ink3);font-size:12px}
 .gbtn-in span{flex:1;min-width:0} .gbtn-in .input{font-size:13px;padding:4px 0}
 @media (max-width:760px){.rdv{padding:16px 18px 50px}.rdv-grid{grid-template-columns:1fr}.rdv-phases{grid-template-columns:repeat(5,1fr);row-gap:12px}.rdv-logo svg{height:34px}}
+
+/* Écoute IA */
+.listen-consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--ink2);margin-bottom:12px}
+.listen-consent input{width:20px;height:20px;flex-shrink:0;accent-color:var(--stone)}
+.listen-bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.listen-btn.on{background:#B3261E;border-color:#B3261E}
+.listen-live{min-height:20px;font-style:italic;color:var(--ink3);font-size:14px;margin-bottom:4px}
+.listen-tx{font-size:15px}
+.listen-steps{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0 8px}
