@@ -1,4 +1,4 @@
-STATERA Atelier — V1.1.0
+STATERA Atelier — V1.2.0
 =======================
 
 Application de gestion de projets d'architecture pour iPad et iPhone (PWA).

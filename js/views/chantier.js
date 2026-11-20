@@ -1,7 +1,7 @@
 // Chantier : entreprises affectées par lot, réunions, CR par lot envoyés à chaque entreprise
 import { h, put, clear, icon, uid, sheet, toast, fmtDate, fmtShort, daysUntil, todayISO, nowTime, confirmBox, shareOrDownload, downloadBlob, debounce } from '../lib.js';
 import { db } from '../db.js';
-import { LOTS, lot as lotOf, fileName } from '../data.js';
+import { LOTS, lot as lotOf, fileName, fileCode } from '../data.js';
 import { editEntreprise, decStatus } from './entreprises.js';
 
 export async function render(body, ctx) {
@@ -147,9 +147,9 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
     const existing = await db.by('files', 'projectId', p.id);
     for (const k of keys) {
       const blob = await buildCR({ project: p, reunion: r, points, assignments: p.assignments, entreprises, plans, media, pageAnnots, onlyLot: k === 'moa' ? null : k, getSetting: db.setting, previous });
-      const name = fileName({ date: r.date, code: p.abbr, phase: 'DET', type: 'CR', objet: 'Reunion-' + String(r.num).padStart(2, '0') + (k === 'moa' ? '' : '-Lot' + k), ind: 'A', ext: 'pdf' });
+      const name = fileName({ date: r.date, code: fileCode(p), phase: 'DET', type: 'CR', objet: 'Reunion-' + String(r.num).padStart(2, '0') + (k === 'moa' ? '' : '-Lot' + k), ind: 'A', ext: 'pdf' });
       const old = existing.find((f) => f.name === name);
-      await db.put('files', { id: old ? old.id : uid(), projectId: p.id, folder: '06_CHANTIER', name, mime: 'application/pdf', size: blob.size, blob, phase: 'DET', reunionId: r.id, createdAt: new Date().toISOString(), source: 'reunion' });
+      await db.put('files', { id: old ? old.id : uid(), projectId: p.id, folder: '06_CHANTIER', name, mime: 'application/pdf', size: blob.size, blob, phase: 'DET', reunionId: r.id, createdAt: new Date().toISOString(), source: 'reunion', sub: '03_Emis' });
       results[k] = { blob, name };
     }
     toast('CR rangés dans 06_CHANTIER');

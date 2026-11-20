@@ -1,7 +1,7 @@
 // Notes de projet : RDV, visites, appels — avec croquis, décisions, actions et export PDF
 import { h, put, clear, icon, uid, debounce, toast, fmtDate, todayISO, nowTime, confirmBox, shareOrDownload } from '../lib.js';
 import { db } from '../db.js';
-import { NOTE_TYPES, noteType, AGENDAS, phase, fileName } from '../data.js';
+import { NOTE_TYPES, noteType, AGENDAS, phase, fileName, fileCode } from '../data.js';
 import { sketchSurface, miniSketch, penPicker, penPrefs } from '../ink.js';
 import { addPhotos, photoThumb, openPhotoEditor } from './photo.js';
 import { loadProject } from './project.js';
@@ -158,9 +158,9 @@ export async function renderEditor(view, params) {
     for (const id of n.photos) { const m = await db.get('media', id); if (m) photosData.push(await photoComposite(m, 1000)); }
     const blob = await buildNotePDF({ project: p, note: { ...n, photosData }, getSetting: db.setting });
     const ph = phase(n.phase || p.phase);
-    const name = fileName({ date: n.date, code: p.abbr, phase: ph.id, type: 'CR', objet: n.titre || noteType(n.type).nom, ind: 'A', ext: 'pdf' });
+    const name = fileName({ date: n.date, code: fileCode(p), phase: ph.id, type: 'CR', objet: n.titre || noteType(n.type).nom, ind: 'A', ext: 'pdf' });
     const existing = (await db.by('files', 'projectId', p.id)).find((f) => f.noteId === n.id);
-    await db.put('files', { id: existing ? existing.id : uid(), projectId: p.id, folder: ph.dossier, name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, noteId: n.id, createdAt: new Date().toISOString(), source: 'note' });
+    await db.put('files', { id: existing ? existing.id : uid(), projectId: p.id, folder: ph.dossier, name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, noteId: n.id, createdAt: new Date().toISOString(), source: 'note', sub: '03_Emis' });
     toast('Rangé dans ' + ph.dossier);
     await shareOrDownload(blob, name, 'Compte rendu · ' + p.nom);
   }

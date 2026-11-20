@@ -1,7 +1,7 @@
 // Projet : en-tête, phases, onglets et synthèse
 import { h, put, clear, icon, debounce, toast, fmtDate, fmtShort, daysUntil, fmtEuro, confirmBox, sheet, todayISO, nowTime, uid } from '../lib.js';
 import { db, deleteProject } from '../db.js';
-import { PHASES, phase, FOLDERS, fileName } from '../data.js';
+import { PHASES, phase, FOLDERS, fileName, fileCode, driveFolderName } from '../data.js';
 import { PROJECT_TYPES } from './projects.js';
 
 export const TABS = [
@@ -114,7 +114,7 @@ async function synthese(body, ctx) {
       h('section', { class: 'card stack' },
         h('div', { class: 'flexb' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Identification'), saved),
         h('div', { class: 'grid g2' },
-          fld('N° de dossier', inp(p, 'code')), fld('Code fichiers', inp(p, 'abbr', { maxlength: '6' })),
+          fld('N° de dossier', inp(p, 'code')), fld('Dossier Drive', inp(p, 'driveFolder', { placeholder: driveFolderName(p) })),
           fld('Nom du projet', inp(p, 'nom'), 'span2'),
           fld('Type', sel(p, 'type', PROJECT_TYPES)), fld('Mission', sel(p, 'mission', ['Mission complète', 'Jusqu’au permis', 'Architecture intérieure', 'Conseil / faisabilité', 'Suivi de chantier seul'])))),
       h('section', { class: 'card stack' },
@@ -195,8 +195,8 @@ async function validate(p) {
     toast('Génération du PDF…');
     const { buildValidationPDF } = await import('../pdfkit.js');
     const blob = await buildValidationPDF({ project: p, v, getSetting: db.setting });
-    const name = fileName({ date: v.date, code: p.abbr, phase: ph.id, type: 'VAL', objet: 'Validation ' + ph.court, ind: 'A', ext: 'pdf' });
-    await db.put('files', { id: uid(), projectId: p.id, folder: '00_ADMIN', name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'validation' });
+    const name = fileName({ date: v.date, code: fileCode(p), phase: ph.id, type: 'VAL', objet: 'Validation ' + ph.court, ind: 'A', ext: 'pdf' });
+    await db.put('files', { id: uid(), projectId: p.id, folder: '00_ADMIN', name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'validation', sub: '04_Valide' });
     p.validations = (p.validations || []).concat([{ ...v, signature: undefined, file: name }]);
     const idx = PHASES.findIndex((x) => x.id === ph.id);
     if (idx >= 0 && idx < PHASES.length - 2) p.phase = PHASES[idx + 1].id;

@@ -2,7 +2,7 @@
 // points numérotés rattachés à un lot et à l'entreprise du chantier, photos annotées.
 import { h, put, clear, icon, uid, debounce, toast, clamp, fmtShort, todayISO, confirmBox, promptBox, shareOrDownload } from '../lib.js';
 import { db } from '../db.js';
-import { LOTS, lot as lotOf, POINT_STATUS, POINT_NATURE, phase, fileName } from '../data.js';
+import { LOTS, lot as lotOf, POINT_STATUS, POINT_NATURE, phase, fileName, fileCode } from '../data.js';
 import { renderPlan } from '../pdfkit.js';
 import { strokeEl, strokePath, renderStrokes, penPicker, strokeStyle } from '../ink.js';
 import { addPhotos, photoThumb, openPhotoEditor } from './photo.js';
@@ -55,7 +55,7 @@ export async function renderViewer(view, params) {
   const toolBtns = TOOLS.map(([id, label, ic]) => h('button', { class: 'tool', 'aria-pressed': String(mode === id), 'data-mode': id, title: label, onclick: () => setMode(id) }, ic ? icon(ic, 18) : null, h('span', { class: ic ? 'tool-l' : '' }, label)));
   const picker = penPicker({});
   picker.el.hidden = true;
-  const lotSel = h('select', { class: 'select', 'aria-label': 'Filtrer les points par lot', style: { minHeight: '40px', width: 'auto', background: 'transparent', color: '#F4F3F0', borderColor: '#3a3a38', backgroundImage: 'none', paddingRight: '12px' } });
+  const lotSel = h('select', { class: 'select', 'aria-label': 'Filtrer les points par lot' });
   const pageLbl = h('span', { class: 'info' });
   const countLbl = h('span', { class: 'info' });
 
@@ -416,8 +416,8 @@ export async function renderViewer(view, params) {
     const { exportAnnotatedPlan } = await import('../pdfkit.js');
     const blob = await exportAnnotatedPlan({ plan, pages: pagesMap, points: points.filter((x) => x.planId === plan.id) });
     const ph = phase(plan.phase || p.phase);
-    const name = fileName({ date: todayISO(), code: p.abbr, phase: ph.id, type: 'PLA', objet: plan.nom + ' annote', ind: plan.indice || 'A', ext: 'pdf' });
-    await db.put('files', { id: uid(), projectId: p.id, folder: ph.dossier, name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'plan' });
+    const name = fileName({ date: todayISO(), code: fileCode(p), phase: ph.id, type: 'PLA', objet: plan.nom + ' annote', ind: plan.indice || 'A', ext: 'pdf' });
+    await db.put('files', { id: uid(), projectId: p.id, folder: ph.dossier, name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'plan', sub: '03_Emis' });
     toast('Rangé dans ' + ph.dossier);
     await shareOrDownload(blob, name, plan.nom + ' · ' + p.nom);
   }

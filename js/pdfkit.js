@@ -1,7 +1,8 @@
 // PDF : lecture (pdf.js) et fabrication de documents (pdf-lib) aux couleurs de STATERA
 import { loadScript, fmtDate, fmtShort, blobToDataURL } from './lib.js';
+import { LOGO_VB, LOGO_PATHS } from './brand.js';
 import { drawStrokes } from './ink.js';
-import { lot as lotOf, status as statusOf, noteType, CABINET_DEFAULT } from './data.js';
+import { lot as lotOf, lotLabel as lotLabelOf, status as statusOf, noteType, CABINET_DEFAULT } from './data.js';
 
 /* ---------------- Lecture : pdf.js ---------------- */
 let pdfjsP;
@@ -64,7 +65,7 @@ export async function planThumb(plan) {
   } catch (e) { return null; }
 }
 
-/* ---------------- Fabrication : pdf-lib ---------------- */
+/* ---------------- Fabrication : pdf-lib (mise en page des documents STATERA Honoraires) ---------------- */
 let libP;
 async function pdfLib() {
   if (!libP) {
@@ -72,19 +73,25 @@ async function pdfLib() {
       await loadScript(new URL('../vendor/pdf-lib.min.js', import.meta.url).href);
       await loadScript(new URL('../vendor/fontkit.umd.min.js', import.meta.url).href);
       const get = (f) => fetch(new URL('../assets/fonts/' + f, import.meta.url)).then((r) => r.arrayBuffer());
-      const [j4, j5, g4, gi] = await Promise.all([get('jost-latin-400-normal.woff'), get('jost-latin-500-normal.woff'), get('eb-garamond-latin-400-normal.woff'), get('eb-garamond-latin-400-italic.woff')]);
-      return { L: window.PDFLib, fontkit: window.fontkit, bytes: { j4, j5, g4, gi } };
+      const [j3, j4, j5, gi] = await Promise.all([get('jost-latin-300-normal.woff'), get('jost-latin-400-normal.woff'), get('jost-latin-500-normal.woff'), get('eb-garamond-latin-400-italic.woff')]);
+      return { L: window.PDFLib, fontkit: window.fontkit, bytes: { j3, j4, j5, gi } };
     })();
   }
   return libP;
 }
 
 const A4 = [595.28, 841.89];
-const M = 46;
+const MM = 2.8346;
+const M = 17 * MM;           // marges latérales 17 mm
+const TOP = 16 * MM;         // marge haute 16 mm
+const FOOT = 22 * MM;        // zone de pied
 function C(L) {
+  const hex = (x) => L.rgb(parseInt(x.slice(1, 3), 16) / 255, parseInt(x.slice(3, 5), 16) / 255, parseInt(x.slice(5, 7), 16) / 255);
   return {
-    ink: L.rgb(0.086, 0.086, 0.086), grey: L.rgb(0.37, 0.36, 0.34), line: L.rgb(0.75, 0.74, 0.71),
-    stone: L.rgb(0.906, 0.898, 0.878), paper: L.rgb(0.957, 0.953, 0.941), white: L.rgb(1, 1, 1)
+    hex, ink: hex('#161616'), ink2: hex('#57544F'), ink3: hex('#8C8981'), beton: hex('#BFBDB6'), rule: hex('#D9D6CF'), enduit: hex('#E7E5E0'), chaux: hex('#F4F3F0'), white: L.rgb(1, 1, 1),
+    late: hex('#A23B2A'),
+    // alias historiques
+    grey: hex('#57544F'), line: hex('#BFBDB6'), stone: hex('#E7E5E0')
   };
 }
 
@@ -95,17 +102,20 @@ class Doc {
     const pdf = await L.PDFDocument.create();
     pdf.registerFontkit(fontkit);
     const f = {
+      l: await pdf.embedFont(bytes.j3, { subset: true }),
       r: await pdf.embedFont(bytes.j4, { subset: true }),
       m: await pdf.embedFont(bytes.j5, { subset: true }),
-      g: await pdf.embedFont(bytes.g4, { subset: true }),
       gi: await pdf.embedFont(bytes.gi, { subset: true })
     };
-    const d = new Doc(); Object.assign(d, { L, pdf, f, c: C(L), meta, pages: [] });
+    f.g = f.l;
+    const d = new Doc(); Object.assign(d, { L, pdf, f, c: C(L), meta, pages: [], size: meta.size || A4 });
     pdf.setTitle(meta.title); pdf.setAuthor(meta.cabinet.nom); pdf.setCreator('STATERA Atelier'); pdf.setLanguage('fr-FR');
     d.charsets = new Map();
     d.newPage(true);
     return d;
   }
+  get W() { return this.size[0]; }
+  get H() { return this.size[1]; }
   safe(t, font) {
     if (t === null || t === undefined) return '';
     let s = String(t).replace(/→/g, '->').replace(/≈/g, '~').replace(/≤/g, '<=').replace(/≥/g, '>=').replace(/ | /g, ' ');
@@ -117,45 +127,70 @@ class Doc {
     return out;
   }
   w(t, size, font) { return (font || this.f.r).widthOfTextAtSize(this.safe(t, font), size); }
-  newPage(first) {
-    const p = this.pdf.addPage(A4);
+  // Texte espacé (capitales des étiquettes)
+  tracked(text, x, y, size, { font, color, track = 0.16, right = false, page } = {}) {
+    font = font || this.f.r; page = page || this.p;
+    const t = this.safe(text, font);
+    const tw = [...t].reduce((a, ch) => a + font.widthOfTextAtSize(ch, size) + size * track, 0) - size * track;
+    let cx = right ? x - tw : x;
+    for (const ch of t) { page.drawText(ch, { x: cx, y, size, font, color: color || this.c.ink3 }); cx += font.widthOfTextAtSize(ch, size) + size * track; }
+    return tw;
+  }
+  logo(page, x, yTop, width, color) {
+    const [vx, vy, vw] = LOGO_VB.split(/\s+/).map(Number);
+    const k = width / vw;
+    LOGO_PATHS.forEach((d) => page.drawSvgPath(d, { x: x - vx * k, y: yTop + vy * k, scale: k, color: color || this.c.ink, borderWidth: 0 }));
+    return width * (Number(LOGO_VB.split(/\s+/)[3]) / vw);
+  }
+  newPage(first, size) {
+    if (size) this.size = size;
+    const p = this.pdf.addPage(this.size);
     this.pages.push(p); this.p = p;
-    this.y = A4[1] - M;
     this.header(first);
   }
   header(first) {
     const { p, f, c, meta } = this;
-    // Mot STATERA espacé
-    let x = M; const yb = A4[1] - M - 14;
-    for (const ch of 'STATERA') { p.drawText(ch, { x, y: yb, size: 17, font: f.g, color: c.ink }); x += f.g.widthOfTextAtSize(ch, 17) + 4.2; }
-    let x2 = M + 1;
-    for (const ch of 'ARCHITECTURE') { p.drawText(ch, { x: x2, y: yb - 12, size: 5.6, font: f.r, color: c.grey }); x2 += f.r.widthOfTextAtSize(ch, 5.6) + 2.6; }
-    const t = this.safe(meta.title, f.gi);
-    const ts = first ? 15 : 11;
-    p.drawText(t, { x: A4[0] - M - f.gi.widthOfTextAtSize(t, ts), y: yb + (first ? 0 : 2), size: ts, font: f.gi, color: c.ink });
-    if (meta.subtitle) {
-      const s = this.safe(meta.subtitle);
-      p.drawText(s, { x: A4[0] - M - f.r.widthOfTextAtSize(s, 8.5), y: yb - 13, size: 8.5, font: f.r, color: c.grey });
+    const top = this.H - TOP;
+    if (first) {
+      const lh = this.logo(p, M, top, 52 * MM);
+      const who = this.safe(meta.cabinet.architecte.split(',')[0] || 'Michel Mangion', f.l);
+      p.drawText(who, { x: this.W - M - f.l.widthOfTextAtSize(who, 13), y: top - 12, size: 13, font: f.l, color: c.ink });
+      const s2 = 'Architecte';
+      p.drawText(s2, { x: this.W - M - f.r.widthOfTextAtSize(s2, 8.5), y: top - 24, size: 8.5, font: f.r, color: c.ink2 });
+      const ty = top - lh - 11 * MM - 22;
+      const t = this.safe(meta.title, f.l);
+      let ts = 25; while (f.l.widthOfTextAtSize(t, ts) > this.W - 2 * M && ts > 14) ts -= 1;
+      p.drawText(t, { x: M, y: ty, size: ts, font: f.l, color: c.ink });
+      let y = ty - 14;
+      if (meta.subtitle) { p.drawText(this.safe(meta.subtitle), { x: M, y, size: 8.5, font: f.r, color: c.ink2 }); y -= 11; }
+      if (meta.ref) { this.tracked(meta.ref, M, y, 6.8, { track: 0.06 }); y -= 6; }
+      this.y = y - 16;
+    } else {
+      const lh = this.logo(p, M, top, 34 * MM);
+      const t = this.safe(meta.title, f.l);
+      p.drawText(t, { x: this.W - M - f.l.widthOfTextAtSize(t, 10.5), y: top - 10, size: 10.5, font: f.l, color: c.ink });
+      if (meta.subtitle) { const s = this.safe(meta.subtitle); p.drawText(s, { x: this.W - M - f.r.widthOfTextAtSize(s, 7.5), y: top - 21, size: 7.5, font: f.r, color: c.ink3 }); }
+      p.drawLine({ start: { x: M, y: top - lh - 8 }, end: { x: this.W - M, y: top - lh - 8 }, thickness: 0.6, color: c.ink });
+      this.y = top - lh - 24;
     }
-    p.drawLine({ start: { x: M, y: yb - 24 }, end: { x: A4[0] - M, y: yb - 24 }, thickness: 0.6, color: c.ink });
-    this.y = yb - 44;
   }
   footers() {
     const { f, c, meta } = this;
     const n = this.pages.length;
     const cab = meta.cabinet;
-    const line = this.safe([cab.nom, cab.architecte, cab.adresse].filter(Boolean).join('  ·  '));
-    const line2 = this.safe([cab.tel, cab.email, cab.ordre, cab.siren].filter(Boolean).join('  ·  '));
+    const txt = this.safe([cab.nom, cab.architecte + (cab.forme ? ', ' + cab.forme : ''), cab.adresse, cab.siren, cab.ordre, cab.email, cab.tel].filter(Boolean).join(' — '));
     this.pages.forEach((p, i) => {
-      p.drawLine({ start: { x: M, y: 40 }, end: { x: A4[0] - M, y: 40 }, thickness: 0.4, color: c.line });
-      p.drawText(line, { x: M, y: 28, size: 6.4, font: f.r, color: c.grey });
-      p.drawText(line2, { x: M, y: 19, size: 6.4, font: f.r, color: c.grey });
-      const pg = 'Page ' + (i + 1) + ' / ' + n;
-      p.drawText(pg, { x: A4[0] - M - f.r.widthOfTextAtSize(pg, 7.5), y: 24, size: 7.5, font: f.r, color: c.ink });
-      if (meta.ref) { const r = this.safe(meta.ref); p.drawText(r, { x: A4[0] - M - f.r.widthOfTextAtSize(r, 6.4), y: 14, size: 6.4, font: f.r, color: c.grey }); }
+      const { width } = p.getSize();
+      const maxW = width - 2 * M - 60;
+      p.drawLine({ start: { x: M, y: FOOT - 4 }, end: { x: width - M, y: FOOT - 4 }, thickness: 0.4, color: c.rule });
+      const ls = this.lines(txt, 6.4, maxW);
+      ls.slice(0, 2).forEach((l, j) => p.drawText(l, { x: M, y: FOOT - 14 - j * 8.5, size: 6.4, font: f.r, color: c.ink3 }));
+      const pg = (i + 1) + ' / ' + n;
+      p.drawText(pg, { x: width - M - f.r.widthOfTextAtSize(pg, 7.5), y: FOOT - 14, size: 7.5, font: f.r, color: c.ink });
+      if (meta.ref) { const r = this.safe(meta.ref); p.drawText(r, { x: width - M - f.r.widthOfTextAtSize(r, 6.2), y: FOOT - 23, size: 6.2, font: f.r, color: c.ink3 }); }
     });
   }
-  ensure(hgt) { if (this.y - hgt < 58) this.newPage(false); }
+  ensure(hgt) { if (this.y - hgt < FOOT + 6) this.newPage(false); }
   lines(text, size, width, font) {
     font = font || this.f.r;
     const out = [];
@@ -179,7 +214,7 @@ class Doc {
   }
   para(text, { size = 9.5, font, color, width, x = M, gap = 4, lh = 1.42 } = {}) {
     if (!text) return;
-    width = width || A4[0] - 2 * M;
+    width = width || this.W - 2 * M;
     const ls = this.lines(text, size, width, font);
     for (const l of ls) {
       this.ensure(size * lh);
@@ -188,48 +223,56 @@ class Doc {
     }
     this.y -= gap;
   }
-  h2(t) {
-    this.ensure(40);
-    this.y -= 6;
-    this.p.drawText(this.safe(t.toUpperCase(), this.f.m), { x: M, y: this.y - 8, size: 7.6, font: this.f.m, color: this.c.grey });
-    this.y -= 14;
-    this.p.drawLine({ start: { x: M, y: this.y }, end: { x: A4[0] - M, y: this.y }, thickness: 0.4, color: this.c.line });
+  // Titre de section : capitales espacées, filet béton (comme les phases de la proposition d'honoraires)
+  h2(t, right) {
+    this.ensure(44);
+    this.y -= 8;
+    this.tracked(t.toUpperCase(), M, this.y - 8, 7.4, { color: this.c.ink, track: 0.18 });
+    if (right) { const r = this.safe(right, this.f.l); this.p.drawText(r, { x: this.W - M - this.f.l.widthOfTextAtSize(r, 12.5), y: this.y - 9, size: 12.5, font: this.f.l, color: this.c.ink }); }
+    this.y -= 13;
+    this.p.drawLine({ start: { x: M, y: this.y }, end: { x: this.W - M, y: this.y }, thickness: 0.4, color: this.c.beton });
     this.y -= 10;
   }
-  kvGrid(pairs, cols = 2) {
-    const colW = (A4[0] - 2 * M) / cols;
+  // Bloc « parties » : filet noir au-dessus, filet clair au-dessous, colonnes
+  kvGrid(pairs, cols = 3) {
+    const colW = (this.W - 2 * M) / cols;
+    this.ensure(40);
+    this.p.drawLine({ start: { x: M, y: this.y }, end: { x: this.W - M, y: this.y }, thickness: 0.6, color: this.c.ink });
+    this.y -= 4 * MM;
     for (let i = 0; i < pairs.length; i += cols) {
       const row = pairs.slice(i, i + cols);
-      const hs = row.map(([, v]) => this.lines(v || '—', 9.5, colW - 12).length);
-      const rh = 12 + Math.max(...hs) * 13 + 6;
+      const hs = row.map(([, v]) => this.lines(v || '—', 9, colW - 14).length);
+      const rh = 12 + Math.max(...hs) * 12.6 + 8;
       this.ensure(rh);
       row.forEach(([k, v], j) => {
         const x = M + j * colW;
-        this.p.drawText(this.safe(k.toUpperCase(), this.f.m), { x, y: this.y - 7, size: 6.6, font: this.f.m, color: this.c.grey });
-        this.lines(v || '—', 9.5, colW - 12).forEach((l, n) => this.p.drawText(l, { x, y: this.y - 20 - n * 13, size: 9.5, font: this.f.r, color: this.c.ink }));
+        this.tracked(k.toUpperCase(), x, this.y - 6, 6.6, { track: 0.16 });
+        this.lines(v || '—', 9, colW - 14).forEach((l, n) => this.p.drawText(l, { x, y: this.y - 19 - n * 12.6, size: 9, font: this.f.r, color: this.c.ink }));
       });
       this.y -= rh;
     }
+    this.p.drawLine({ start: { x: M, y: this.y + 2 }, end: { x: this.W - M, y: this.y + 2 }, thickness: 0.4, color: this.c.rule });
+    this.y -= 12;
   }
-  table(head, rows, widths, { size = 8.8 } = {}) {
-    const W = A4[0] - 2 * M;
-    const ws = widths.map((w) => w * W);
+  table(head, rows, widths, { size = 8.6 } = {}) {
+    const Wd = this.W - 2 * M;
+    const ws = widths.map((w) => w * Wd);
     const drawHead = () => {
       this.ensure(22);
-      this.p.drawRectangle({ x: M, y: this.y - 18, width: W, height: 18, color: this.c.stone });
       let x = M;
-      head.forEach((t, i) => { this.p.drawText(this.safe(t.toUpperCase(), this.f.m), { x: x + 6, y: this.y - 12, size: 6.6, font: this.f.m, color: this.c.ink }); x += ws[i]; });
-      this.y -= 18;
+      head.forEach((t, i) => { this.tracked(t.toUpperCase(), x, this.y - 10, 6.6, { track: 0.14, color: this.c.ink }); x += ws[i]; });
+      this.y -= 15;
+      this.p.drawLine({ start: { x: M, y: this.y }, end: { x: M + Wd, y: this.y }, thickness: 0.4, color: this.c.beton });
     };
     drawHead();
     rows.forEach((r) => {
-      const cells = r.map((t, i) => this.lines(t || '', size, ws[i] - 12));
-      const rh = Math.max(...cells.map((c) => c.length)) * (size * 1.38) + 9;
-      if (this.y - rh < 58) { this.newPage(false); drawHead(); }
+      const cells = r.map((t, i) => this.lines(t || '', size, ws[i] - 10));
+      const rh = Math.max(...cells.map((c) => c.length)) * (size * 1.38) + 8;
+      if (this.y - rh < FOOT + 6) { this.newPage(false); drawHead(); }
       let x = M;
-      cells.forEach((ls, i) => { ls.forEach((l, n) => this.p.drawText(l, { x: x + 6, y: this.y - 6 - size - n * size * 1.38, size, font: this.f.r, color: this.c.ink })); x += ws[i]; });
+      cells.forEach((ls, i) => { ls.forEach((l, n) => this.p.drawText(l, { x, y: this.y - 5 - size - n * size * 1.38, size, font: this.f.r, color: this.c.ink })); x += ws[i]; });
       this.y -= rh;
-      this.p.drawLine({ start: { x: M, y: this.y }, end: { x: M + W, y: this.y }, thickness: 0.35, color: this.c.line });
+      this.p.drawLine({ start: { x: M, y: this.y }, end: { x: M + Wd, y: this.y }, thickness: 0.3, color: this.c.enduit });
     });
     this.y -= 8;
   }
@@ -239,7 +282,7 @@ class Doc {
     const k = Math.min(w / img.width, hgt / img.height);
     const iw = img.width * k, ih = img.height * k;
     this.p.drawImage(img, { x, y: yTop - ih, width: iw, height: ih });
-    this.p.drawRectangle({ x, y: yTop - ih, width: iw, height: ih, borderColor: this.c.line, borderWidth: 0.5 });
+    this.p.drawRectangle({ x, y: yTop - ih, width: iw, height: ih, borderColor: this.c.rule, borderWidth: 0.4 });
     return ih;
   }
   async save() { this.footers(); return this.pdf.save(); }
@@ -281,7 +324,7 @@ export async function planCrop(plan, pageIndex, point, cache, { w = 420, hgt = 2
 export async function buildCR({ project, reunion, points, assignments, entreprises, plans, media, pageAnnots, onlyLot, getSetting, previous }) {
   const cab = await cabinet(getSetting);
   const ent = (id) => entreprises.find((e) => e.id === id);
-  const lotLabel = (lid) => { const l = lotOf(lid); return l.id === '—' ? 'Généralités' : 'Lot ' + l.id + ' · ' + l.nom; };
+  const lotLabel = (lid) => (lid === '—' || !lid) ? 'Généralités' : lotLabelOf(lid);
   const title = 'Compte rendu de chantier n°' + reunion.num;
   const subtitle = fmtDate(reunion.date, true) + (reunion.heure ? ' · ' + reunion.heure : '') + (onlyLot ? ' · ' + lotLabel(onlyLot) : '');
   const d = await Doc.create({ title, subtitle, cabinet: cab, ref: (project.code || '') + ' · CR' + String(reunion.num).padStart(2, '0') + (onlyLot ? ' · lot ' + onlyLot : '') });
@@ -326,11 +369,15 @@ export async function buildCR({ project, reunion, points, assignments, entrepris
     const e = a && ent(a.entrepriseId);
     d.ensure(60);
     const W = A4[0] - 2 * M;
-    d.p.drawRectangle({ x: M, y: d.y - 20, width: W, height: 20, color: d.c.ink });
-    d.p.drawText(d.safe(lotLabel(lid).toUpperCase(), d.f.m), { x: M + 8, y: d.y - 13.5, size: 7.6, font: d.f.m, color: d.c.white });
-    const en = d.safe(e ? e.nom : (lid === '—' ? 'Tous intervenants' : 'Entreprise non attribuée'));
-    d.p.drawText(en, { x: M + W - 8 - d.f.r.widthOfTextAtSize(en, 8), y: d.y - 13.5, size: 8, font: d.f.r, color: d.c.white });
-    d.y -= 28;
+    const lc = d.c.hex(lotOf(lid).color || '#161616');
+    d.y -= 6;
+    d.p.drawRectangle({ x: M, y: d.y - 12, width: 9, height: 9, color: lc });
+    d.tracked(lotLabel(lid).toUpperCase(), M + 16, d.y - 11, 7.4, { color: d.c.ink, track: 0.16 });
+    const en = d.safe(e ? e.nom : (lid === '—' ? 'Tous intervenants' : 'Entreprise non attribuée'), d.f.l);
+    d.p.drawText(en, { x: M + W - d.f.l.widthOfTextAtSize(en, 12), y: d.y - 12, size: 12, font: d.f.l, color: d.c.ink });
+    d.y -= 18;
+    d.p.drawLine({ start: { x: M, y: d.y }, end: { x: M + W, y: d.y }, thickness: 0.4, color: d.c.beton });
+    d.y -= 10;
     for (const pt of pts) {
       const plan = plans.find((x) => x.id === pt.planId);
       const photo = (pt.photos || []).map((id) => media.find((m) => m.id === id)).find(Boolean);
@@ -342,7 +389,7 @@ export async function buildCR({ project, reunion, points, assignments, entrepris
       d.ensure(rh);
       const top = d.y;
       // numéro
-      d.p.drawCircle({ x: M + 13, y: top - 13, size: 11.5, color: pt.status === 'leve' ? d.c.white : d.c.ink, borderColor: d.c.ink, borderWidth: pt.status === 'leve' ? 0.8 : 0 });
+      d.p.drawCircle({ x: M + 13, y: top - 13, size: 11.5, color: pt.status === 'leve' ? d.c.white : d.c.hex(lotOf(pt.lot).color || '#161616'), borderColor: d.c.ink3, borderWidth: pt.status === 'leve' ? 0.8 : 0 });
       const ns = String(pt.num);
       d.p.drawText(ns, { x: M + 13 - d.f.m.widthOfTextAtSize(ns, 9) / 2, y: top - 16.2, size: 9, font: d.f.m, color: pt.status === 'leve' ? d.c.ink : d.c.white });
       body.forEach((l, i) => d.p.drawText(l, { x: M + 34, y: top - 11 - i * 13.2, size: 9.5, font: d.f.r, color: pt.status === 'leve' ? d.c.grey : d.c.ink }));
@@ -473,7 +520,7 @@ export async function showPdf(blob, name) {
   const lib = await pdfjs();
   const doc = await lib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false }).promise;
   const pages = document.createElement('div');
-  pages.style.cssText = 'flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px;background:#3a3a37';
+  pages.style.cssText = 'flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px;background:#D9D7D2';
   const root = document.createElement('div');
   root.className = 'full'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', name);
   const bar = document.createElement('div');

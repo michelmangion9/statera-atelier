@@ -7,10 +7,10 @@ const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); retur
 
 export async function createDemo() {
   const ents = [
-    { nom: 'Exemple Maçonnerie', lots: ['02'], contact: '[Contact]', email: 'maconnerie@exemple.fr', tel: '', decFin: addDays(200) },
-    { nom: 'Exemple Menuiseries', lots: ['05', '06'], contact: '[Contact]', email: 'menuiseries@exemple.fr', tel: '', decFin: addDays(-20) },
-    { nom: 'Exemple Électricité', lots: ['08'], contact: '[Contact]', email: 'elec@exemple.fr', tel: '', decFin: addDays(320) },
-    { nom: 'Exemple Plomberie', lots: ['09', '10'], contact: '[Contact]', email: 'plomberie@exemple.fr', tel: '', decFin: addDays(150) }
+    { nom: 'Exemple Maçonnerie', lots: ['03'], contact: '[Contact]', email: 'maconnerie@exemple.fr', tel: '', decFin: addDays(200) },
+    { nom: 'Exemple Menuiseries', lots: ['04', '14'], contact: '[Contact]', email: 'menuiseries@exemple.fr', tel: '', decFin: addDays(-20) },
+    { nom: 'Exemple Électricité', lots: ['13'], contact: '[Contact]', email: 'elec@exemple.fr', tel: '', decFin: addDays(320) },
+    { nom: 'Exemple Plomberie', lots: ['11', '12'], contact: '[Contact]', email: 'plomberie@exemple.fr', tel: '', decFin: addDays(150) }
   ].map((e) => ({ id: uid(), ...e, notes: 'Entreprise fictive du projet d’exemple.', createdAt: new Date().toISOString() }));
   for (const e of ents) await db.put('entreprises', e);
 
@@ -19,7 +19,7 @@ export async function createDemo() {
     commune: '[Commune]', adresse: '[Adresse des travaux]', type: 'Maison individuelle neuve', mission: 'Mission complète', phase: 'DET',
     urba: { doc: 'PLU', zone: '[Zone]', autorisation: 'Permis de construire', hauteur: '[7 m à l’égout]', emprise: '[30 %]' },
     prog: { sdp: 112, niveaux: 'R+1', budget: 0, texte: 'Séjour au sud, cuisine ouverte, 4 chambres dont une au rez-de-chaussée. Données fictives.' },
-    assignments: [{ lot: '02', entrepriseId: ents[0].id }, { lot: '05', entrepriseId: ents[1].id }, { lot: '08', entrepriseId: ents[2].id }, { lot: '09', entrepriseId: ents[3].id }],
+    assignments: [{ lot: '03', entrepriseId: ents[0].id }, { lot: '04', entrepriseId: ents[1].id }, { lot: '13', entrepriseId: ents[2].id }, { lot: '11', entrepriseId: ents[3].id }],
     validations: [], createdAt: new Date().toISOString()
   };
   await db.put('projects', p);
@@ -32,12 +32,12 @@ export async function createDemo() {
 
   const X = (v) => v / 1191, Y = (v) => v / 842;
   const pts = [
-    [1, 500, 130, '02', 'encours', 'Reprendre l’arase du mur nord avant la pose des menuiseries.', addDays(7)],
-    [2, 780, 560, '09', 'ouvert', 'Réaliser l’essai d’étanchéité du réseau d’eaux usées avant remblai.', addDays(5)],
-    [3, 340, 630, '05', 'ouvert', 'Transmettre le calepinage de la baie du séjour pour validation de la maîtrise d’œuvre.', addDays(10)],
-    [4, 200, 560, '08', 'ouvert', 'Positionner les prises du plan de travail selon le plan EXE indice C.', addDays(10)],
-    [5, 700, 250, '02', 'leve', 'Réservation de la gaine VMC en dalle : conforme.', addDays(-3)],
-    [6, 640, 460, '', 'ouvert', 'Nettoyage du chantier et évacuation des gravats à chaque fin de semaine.', '']
+    [1, 500, 130, '03', 'encours', 'Reprendre l’arase du mur nord avant la pose des menuiseries.', addDays(7)],
+    [2, 780, 560, '11', 'ouvert', 'Réaliser l’essai d’étanchéité du réseau d’eaux usées avant remblai.', addDays(5)],
+    [3, 340, 630, '04', 'ouvert', 'Transmettre le calepinage de la baie du séjour pour validation de la maîtrise d’œuvre.', addDays(10)],
+    [4, 200, 560, '13', 'ouvert', 'Positionner les prises du plan de travail selon le plan EXE indice C.', addDays(10)],
+    [5, 700, 250, '03', 'leve', 'Réservation de la gaine VMC en dalle : conforme.', addDays(-3)],
+    [6, 640, 460, 'GEN', 'ouvert', 'Nettoyage du chantier et évacuation des gravats à chaque fin de semaine.', '']
   ];
   for (const [num, x, y, lt, st, text, due] of pts) {
     await db.put('points', { id: uid(), projectId: p.id, planId: plan.id, page: 0, x: X(x), y: Y(y), num, lot: lt, nature: 'obs', status: st, text, due, photos: [], date: addDays(-7), leveAt: st === 'leve' ? addDays(-1) : '', createdAt: new Date().toISOString() });

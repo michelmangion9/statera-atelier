@@ -2,6 +2,10 @@
 import { h, put, clear, icon, uid, sheet, toast, fmtShort, daysUntil, confirmBox, pickFiles, blobURL } from '../lib.js';
 import { db } from '../db.js';
 import { LOTS, lot as lotOf } from '../data.js';
+import { seedEntreprises } from '../seed-entreprises.js';
+
+const ZONES = [['tous', 'Toute la Corse-du-Sud'], ['aja', 'Pays ajaccien'], ['sar', 'Sartenais · Valinco'], ['pv', 'Extrême-Sud · Porto-Vecchio']];
+const zoneOf = (e) => { const v = (e.ville || e.adresse || '').toLowerCase(); if (/porto|lecci|conca|bonifacio|figari|sotta|zonza|solenzara/.test(v)) return 'pv'; if (/sart|propriano|viggianello|olmeto|levie|foce/.test(v)) return 'sar'; if (v) return 'aja'; return ''; };
 
 export function decStatus(e) {
   if (!e.decFin) return { label: 'Attestation à demander', bad: true };
@@ -12,7 +16,7 @@ export function decStatus(e) {
 }
 
 export async function render(view, params) {
-  let search = '', lotF = 'tous';
+  let search = '', lotF = 'tous', zoneF = 'tous';
   const [list, projects] = await Promise.all([db.all('entreprises'), db.all('projects')]);
   const chantiers = (id) => projects.filter((p) => (p.assignments || []).some((a) => a.entrepriseId === id));
   const box = h('div');
@@ -20,18 +24,38 @@ export async function render(view, params) {
     clear(box);
     let rows = list.slice().sort((a, b) => a.nom.localeCompare(b.nom));
     if (lotF !== 'tous') rows = rows.filter((e) => (e.lots || []).includes(lotF));
-    if (search) { const s = search.toLowerCase(); rows = rows.filter((e) => [e.nom, e.contact, e.email, e.commune].join(' ').toLowerCase().includes(s)); }
-    if (!list.length) { box.appendChild(h('div', { class: 'empty' }, h('div', { class: 'title-sm' }, 'Aucune entreprise'), 'Enregistrez vos entreprises une fois : elles seront proposées par lot sur chaque chantier, avec le suivi de leur assurance décennale.', h('button', { class: 'btn btn-primary', onclick: add }, icon('plus', 18), 'Nouvelle entreprise'))); return; }
+    if (zoneF !== 'tous') rows = rows.filter((e) => zoneOf(e) === zoneF);
+    if (search) { const s = search.toLowerCase(); rows = rows.filter((e) => [e.nom, e.contact, e.email, e.ville, e.adresse].join(' ').toLowerCase().includes(s)); }
+    if (!list.length) { box.appendChild(h('div', { class: 'empty' }, h('div', { class: 'title-sm' }, 'Aucune entreprise'), 'Enregistrez vos entreprises une fois : elles seront proposées par lot sur chaque chantier, avec le suivi de leur assurance décennale.', h('div', { class: 'actions', style: { justifyContent: 'center' } }, h('button', { class: 'btn btn-primary', onclick: loadSeed }, icon('plus', 18), 'Charger la base Corse-du-Sud'), h('button', { class: 'btn btn-line', onclick: add }, 'Nouvelle entreprise')))); return; }
     if (!rows.length) { box.appendChild(h('div', { class: 'empty' }, 'Aucune entreprise ne correspond.')); return; }
-    box.appendChild(h('div', { class: 'list' }, rows.map((e) => {
+    const rowEl = (e) => {
       const ds = decStatus(e); const n = chantiers(e.id).length;
       return h('button', { class: 'row', onclick: () => open(e) },
-        h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, e.nom), h('span', { class: 'row-s' }, [(e.lots || []).map((l) => l + ' ' + lotOf(l).code).join(', '), e.contact, e.tel].filter(Boolean).join(' · ') || '—')),
-        n ? h('span', { class: 'tag' }, n + ' chantier' + (n > 1 ? 's' : '')) : null,
-        h('span', { class: ds.bad ? 'tag tag-fill' : 'tag tag-dash' }, ds.label),
+        h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, e.nom), h('span', { class: 'row-s' }, [e.ville, (e.lots || []).map((l) => lotOf(l).code).join(' · '), e.contact, e.tel].filter(Boolean).join(' · ') || '—'),
+          h('span', { class: 'row-x' }, [e.aVerifier ? 'À vérifier' : null, n ? n + ' chantier' + (n > 1 ? 's' : '') : null, ds.label].filter(Boolean).join(' · '))),
+        h('span', { class: 'row-tags' },
+          e.aVerifier ? h('span', { class: 'tag tag-dash' }, 'À vérifier') : null,
+          n ? h('span', { class: 'tag' }, n + ' chantier' + (n > 1 ? 's' : '')) : null,
+          h('span', { class: ds.bad ? 'tag tag-fill' : 'tag tag-dash' }, ds.label)),
         h('span', { class: 'chev' }, icon('chev', 18)));
-    })));
+    };
+    if (lotF !== 'tous' || search) { box.appendChild(h('div', { class: 'list' }, rows.map(rowEl))); return; }
+    LOTS.forEach((l) => {
+      const g = rows.filter((e) => (e.lots || [])[0] === l.id);
+      if (!g.length) return;
+      box.appendChild(h('div', { class: 'lot-group' },
+        h('div', { class: 'lot-head', style: { borderLeft: '4px solid ' + l.color, padding: '2px 0 2px 10px', margin: '18px 0 6px' } }, h('span', { class: 'eyebrow', style: { margin: 0 } }, (/^\d+$/.test(l.id) ? 'Lot ' + l.id + ' · ' : '') + l.nom), h('span', { class: 'small muted' }, ' ' + g.length)),
+        h('div', { class: 'list' }, g.map(rowEl))));
+    });
+    const other = rows.filter((e) => !(e.lots || []).length || !LOTS.some((l) => l.id === e.lots[0]));
+    if (other.length) box.appendChild(h('div', null, h('div', { class: 'eyebrow', style: { margin: '18px 0 6px' } }, 'Sans lot'), h('div', { class: 'list' }, other.map(rowEl))));
   };
+  async function loadSeed() {
+    const seed = seedEntreprises().filter((x) => !list.some((e) => e.id === x.id || e.nom.toLowerCase() === x.nom.toLowerCase()));
+    for (const e of seed) { await db.put('entreprises', e); list.push(e); }
+    toast(seed.length ? seed.length + ' entreprises ajoutées — coordonnées à vérifier' : 'La base est déjà chargée');
+    render(view, params);
+  }
   async function add() { const e = await editEntreprise(); if (e) { list.push(e); draw(); } }
   async function open(e) { const r = await editEntreprise(e, {}, chantiers(e.id)); if (r === 'deleted') list.splice(list.indexOf(e), 1); draw(); }
   const lotsUsed = LOTS.filter((l) => list.some((e) => (e.lots || []).includes(l.id)));
@@ -41,10 +65,12 @@ export async function render(view, params) {
   clear(view).appendChild(h('div', { class: 'page' },
     h('header', { class: 'page-head' },
       h('div', null, h('div', { class: 'eyebrow' }, 'Base de données'), h('h1', { class: 'title' }, 'Entreprises'), h('div', { class: 'sub' }, list.length + ' entreprise' + (list.length > 1 ? 's' : ''))),
-      h('div', { class: 'actions' }, h('button', { class: 'btn btn-primary', onclick: add }, icon('plus', 18), 'Nouvelle entreprise'))),
+      h('div', { class: 'actions' }, list.some((e) => e.seed) ? null : h('button', { class: 'btn btn-line', onclick: loadSeed }, 'Base Corse-du-Sud'), h('button', { class: 'btn btn-primary', onclick: add }, icon('plus', 18), 'Nouvelle entreprise'))),
     expired.length ? h('div', { class: 'alert mb' }, h('b', null, 'Assurance à vérifier'), ' — ' + expired.map((e) => e.nom + ' (' + decStatus(e).label.toLowerCase() + ')').join(', ') + '. Demandez l’attestation avant tout nouveau marché.') : null,
     list.length ? h('div', { class: 'flexb mb' },
-      h('div', { class: 'chips' }, chip('tous', 'Tous les lots'), lotsUsed.map((l) => chip(l.id, l.id + ' · ' + l.code))),
+      h('div', null,
+        h('div', { class: 'chips mb' }, ZONES.map(([id, label]) => h('button', { class: 'chip', 'aria-pressed': String(zoneF === id), onclick: (ev) => { zoneF = id; ev.currentTarget.parentElement.querySelectorAll('.chip').forEach((b) => b.setAttribute('aria-pressed', String(b === ev.currentTarget))); draw(); } }, label))),
+        h('div', { class: 'chips' }, chip('tous', 'Tous les lots'), lotsUsed.map((l) => chip(l.id, l.code)))),
       h('input', { class: 'input', type: 'search', placeholder: 'Rechercher…', 'aria-label': 'Rechercher une entreprise', style: { maxWidth: '300px' }, oninput: (ev) => { search = ev.target.value; draw(); } })) : null,
     box));
   draw();
@@ -60,7 +86,7 @@ export function editEntreprise(existing, defaults = {}, chantiers = []) {
       const on = (e.lots || []).includes(l.id);
       e.lots = on ? e.lots.filter((x) => x !== l.id) : (e.lots || []).concat(l.id);
       ev.currentTarget.setAttribute('aria-pressed', String(!on));
-    } }, l.id + ' · ' + l.code)));
+    } }, /^\d+$/.test(l.id) ? l.id + ' · ' + l.code : l.code)));
     const attBox = h('div');
     const drawAtt = async () => {
       clear(attBox);
@@ -81,7 +107,8 @@ export function editEntreprise(existing, defaults = {}, chantiers = []) {
         h('div', { class: 'field' }, h('span', { class: 'lbl-s' }, 'Lots'), lotChips),
         h('div', { class: 'grid g2' }, fld('Contact', inp('contact')), fld('Téléphone', inp('tel', { type: 'tel', inputmode: 'tel' })),
           fld('E-mail (envoi des CR)', inp('email', { type: 'email', inputmode: 'email' })), fld('SIRET', inp('siret', { inputmode: 'numeric' })),
-          fld('Adresse', inp('adresse'), 'span2')),
+          fld('Adresse', inp('adresse')), fld('Commune', inp('ville'))),
+        e.aVerifier ? h('div', { class: 'alert alert-soft small' }, h('span', null, (e.notes || '').split('Source')[1] ? 'Source' + e.notes.split('Source')[1] : 'Fiche issue de la base de départ.'), h('button', { class: 'btn btn-sm btn-line', type: 'button', onclick: (ev) => { e.aVerifier = false; ev.currentTarget.textContent = 'Marquée vérifiée'; ev.currentTarget.disabled = true; } }, 'Coordonnées vérifiées')) : null,
         h('div', { class: 'section-t', style: { margin: '6px 0 0' } }, 'Assurance décennale'),
         h('div', { class: 'grid g3' }, fld('Assureur', inp('decAssureur')), fld('N° de police', inp('decPolice')), fld('Valide jusqu’au', inp('decFin', { type: 'date' }))),
         attBox,

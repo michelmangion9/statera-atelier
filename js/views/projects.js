@@ -80,10 +80,10 @@ export async function newProject() {
   const fld = (label, el, cls) => h('label', { class: 'field ' + (cls || '') }, h('span', null, label), el);
   const s = sheet({
     title: 'Nouveau projet',
-    body: [h('div', { class: 'grid g2' }, fld('N° de dossier', f.code), fld('Code fichiers', f.abbr)),
+    body: [fld('N° d\u2019affaire', f.code),
       fld('Nom du projet', f.nom), fld('Maître d’ouvrage', f.client),
       h('div', { class: 'grid g2' }, fld('Commune', f.commune), fld('Phase', f.phase)), fld('Type', f.type),
-      h('div', { class: 'alert alert-soft small' }, 'Le code fichiers sert à nommer les documents : AAMMJJ_CODE_PHASE_TYPE_Objet_Ind.')],
+      h('div', { class: 'alert alert-soft small' }, 'Dossier Drive : AAAA-NNN_NOM. Fichiers : AAMMJJ_AANNN_PHASE_TYPE_OBJET_IND.')],
     foot: [h('button', { class: 'btn btn-line', onclick: () => s.close() }, 'Annuler'), h('button', { class: 'btn btn-primary', onclick: create }, 'Créer le projet')]
   });
   async function create() {

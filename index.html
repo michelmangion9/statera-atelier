@@ -3,27 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#161616">
+<meta name="theme-color" content="#F4F3F0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="STATERA Atelier">
-<title>STATERA Atelier</title>
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Atelier">
+<meta name="format-detection" content="telephone=no">
+<title>STATERA — Atelier</title>
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
-<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+<link rel="preload" href="assets/fonts/jost-var.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <div id="app" class="shell">
-  <nav class="side" aria-label="Navigation principale">
-    <a class="brand" href="#/projets" aria-label="STATERA Atelier, accueil">
-      <span class="brand-word">STATERA</span>
-      <span class="brand-sub">ATELIER</span>
-    </a>
-    <div class="side-links" id="nav"></div>
-    <div class="side-foot" id="side-foot"></div>
-  </nav>
+  <header class="masthead">
+    <a class="brand" href="#/projets" id="brand" aria-label="STATERA Architecture — accueil de l'Atelier"></a>
+    <nav id="nav" aria-label="Navigation principale"></nav>
+    <div class="who"><b>Michel Mangion</b>Architecte · Atelier</div>
+  </header>
   <main id="view" class="view" tabindex="-1"></main>
   <nav class="tabbar" id="tabbar" aria-label="Navigation principale"></nav>
 </div>

@@ -1,6 +1,8 @@
 // STATERA Atelier — routeur et coquille
 import { h, put, clear, icon } from './lib.js';
 import { db, askPersist } from './db.js';
+import { logoSVG } from './brand.js';
+import { setLots, LOTS_VERSION } from './data.js';
 
 const NAV = [
   { id: 'projets', href: '#/projets', label: 'Projets', icon: 'projets' },
@@ -26,7 +28,7 @@ async function route() {
   document.querySelectorAll('#layer > *').forEach((el) => el.remove());
   window.scrollTo(0, 0);
   const section = parts[0] === 'p' ? 'projets' : (parts[0] || 'projets');
-  renderNav(section, parts[0] === 'p' ? parts[1] : null);
+  renderNav(section);
   let mod, params = { q };
   try {
     if (parts[0] === 'p' && parts[1]) {
@@ -56,29 +58,24 @@ async function remember(id) {
   await db.setSetting('recent', rec.slice(0, 5));
 }
 
-async function renderNav(section, currentProject) {
+async function renderNav(section) {
   const nav = document.getElementById('nav');
   const tab = document.getElementById('tabbar');
   clear(nav); clear(tab);
   NAV.forEach((n) => {
-    nav.appendChild(h('a', { href: n.href, 'aria-current': n.id === section ? 'page' : null }, icon(n.icon), n.label));
+    nav.appendChild(h('a', { href: n.href, 'aria-current': n.id === section ? 'page' : null }, n.label));
     tab.appendChild(h('a', { href: n.href, 'aria-current': n.id === section ? 'page' : null }, icon(n.icon, 22), n.label));
   });
-  const rec = await db.setting('recent', []);
-  const projs = (await Promise.all(rec.map((id) => db.get('projects', id)))).filter(Boolean).slice(0, 4);
-  if (projs.length) {
-    nav.appendChild(h('div', { class: 'side-proj' }, h('div', { class: 'lbl' }, 'RÉCENTS'),
-      projs.map((p) => h('a', { href: '#/p/' + p.id, 'aria-current': p.id === currentProject ? 'page' : null }, h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, p.nom)))));
-  }
-  const foot = document.getElementById('side-foot');
-  put(clear(foot), h('div', null, 'Données sur cet appareil'), h('div', null, 'Michel Mangion · Architecte'));
 }
+const brand = document.getElementById('brand');
+if (brand && !brand.firstChild) brand.appendChild(logoSVG());
 
 window.addEventListener('hashchange', route);
-window.addEventListener('statera:refresh-nav', () => { const { parts } = parse(); renderNav(parts[0] === 'p' ? 'projets' : (parts[0] || 'projets'), parts[0] === 'p' ? parts[1] : null); });
+
 
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !location.hostname.endsWith('claudeusercontent.com')) {
   navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => { /* hors ligne indisponible */ });
 }
 askPersist();
+try { const saved = await db.setting('lots', null); const v = await db.setting('lotsVersion', 1); if (Array.isArray(saved) && saved.length && v === LOTS_VERSION) setLots(saved); } catch (e) { /* liste par défaut */ }
 route();
