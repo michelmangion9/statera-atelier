@@ -6,9 +6,8 @@ import { PROJECT_TYPES } from './projects.js';
 
 export const TABS = [
   { id: 'synthese', label: 'Synthèse', icon: 'info' },
-  { id: 'notes', label: 'Notes', icon: 'note' },
+  { id: 'journal', label: 'Journal', icon: 'note' },
   { id: 'plans', label: 'Plans', icon: 'plan' },
-  { id: 'chantier', label: 'Chantier', icon: 'crane' },
   { id: 'points', label: 'Points', icon: 'pin' },
   { id: 'fichiers', label: 'Fichiers', icon: 'folder' }
 ];
@@ -25,19 +24,20 @@ export async function render(view, params) {
   const [notes, plans, points, files] = await Promise.all([
     db.by('notes', 'projectId', p.id), db.by('plans', 'projectId', p.id), db.by('points', 'projectId', p.id), db.by('files', 'projectId', p.id)
   ]);
-  const counts = { notes: notes.length, plans: plans.length, points: points.filter((x) => x.status !== 'leve').length, fichiers: files.length };
+  const nReu = (await db.by('reunions', 'projectId', p.id)).length;
+  const counts = { journal: notes.length + nReu, plans: plans.length, points: points.filter((x) => x.status !== 'leve').length, fichiers: files.length };
   const body = h('div');
   const page = h('div', { class: 'page' },
     header(p),
     phaseTrack(p),
-    h('nav', { class: 'ptabs', 'aria-label': 'Sections du projet' }, TABS.map((t) => h('a', { href: '#/p/' + p.id + (t.id === 'synthese' ? '' : '/' + t.id), 'aria-current': params.tab === t.id ? 'page' : null }, t.label, counts[t.id] ? h('span', { class: 'n' }, counts[t.id]) : null))),
+    h('nav', { class: 'ptabs', 'aria-label': 'Sections du projet' }, TABS.map((t) => h('a', { href: '#/p/' + p.id + (t.id === 'synthese' ? '' : '/' + t.id), 'aria-current': (params.tab === t.id || (t.id === 'journal' && (params.tab === 'notes' || params.tab === 'chantier'))) ? 'page' : null }, t.label, counts[t.id] ? h('span', { class: 'n' }, counts[t.id]) : null))),
     body);
   clear(view).appendChild(page);
   window.scrollTo(0, 0);
 
   const ctx = { project: p, notes, plans, points, files, view, params };
   switch (params.tab) {
-    case 'notes': return (await import('./notes.js')).renderList(body, ctx);
+    case 'journal': case 'notes': return (await import('./journal.js')).render(body, ctx);
     case 'plans': return (await import('./plans.js')).render(body, ctx);
     case 'points': return (await import('./points.js')).render(body, ctx);
     case 'fichiers': return (await import('./files.js')).render(body, ctx);
@@ -54,7 +54,7 @@ function header(p) {
       h('div', { class: 'sub' }, [p.client, p.commune, p.type].filter(Boolean).join(' · '))),
     h('div', { class: 'actions' },
       h('a', { class: 'btn btn-line', href: '#/p/' + p.id + '/rdv' }, icon('info', 18), 'Mode RDV'),
-      h('a', { class: 'btn', href: '#/p/' + p.id + '/notes/new' }, icon('note', 18), 'Note'),
+      h('a', { class: 'btn', href: '#/p/' + p.id + '/journal?new=1' }, icon('plus', 18), 'Nouveau'),
       h('a', { class: 'btn btn-primary', href: '#/p/' + p.id + '/plans' }, icon('plan', 18), 'Plans')));
 }
 
@@ -141,7 +141,7 @@ async function synthese(body, ctx) {
           fld('Programme', area(p.prog, 'texte', { rows: 4, placeholder: 'Pièces, usages, attentes du client…' }), 'span2')))),
     h('div', { class: 'stack' },
       h('div', { class: 'grid g2' },
-        stat(notes.length, 'Notes', '#/p/' + p.id + '/notes'), stat(plans.length, 'Plans', '#/p/' + p.id + '/plans'),
+        stat(notes.length, 'Journal', '#/p/' + p.id + '/journal'), stat(plans.length, 'Plans', '#/p/' + p.id + '/plans'),
         stat(openPts.length, 'Points ouverts', '#/p/' + p.id + '/points'), stat(files.length, 'Fichiers', '#/p/' + p.id + '/fichiers')),
       checks,
       assignAlerts.length ? h('div', { class: 'alert' }, h('b', null, 'Décennale expirée'), ' : ' + assignAlerts.map((e) => e.nom).join(', ')) : null,

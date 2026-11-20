@@ -412,3 +412,4 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .listen-float .lf-stop { background: #B3261E; border-color: #B3261E; }
 @keyframes lfpulse { 50% { opacity: .35; } }
 @media print { .listen-float { display: none !important; } }
+.note-card-visit { border-left: 3px solid #161616; }

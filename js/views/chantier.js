@@ -3,6 +3,8 @@ import { h, put, clear, icon, uid, sheet, toast, fmtDate, fmtShort, daysUntil, t
 import { db } from '../db.js';
 import { LOTS, lot as lotOf, fileName, fileCode, VISIT_TYPES, visitType, destFor } from '../data.js';
 import { editEntreprise, decStatus } from './entreprises.js';
+import { listenCard } from '../listen.js';
+import { sketchBook, sketchesOf, sketchImage, hasContent } from '../sketchbook.js';
 
 export async function render(body, ctx) {
   const { project: p, params } = ctx;
@@ -13,6 +15,7 @@ export async function render(body, ctx) {
     const r = reunions.find((x) => x.id === params.q.r);
     if (r) return reunionEditor(body, { ...ctx, entreprises, reunions, r });
   }
+  if (!ctx.only) { location.replace('#/p/' + p.id + '/journal'); return; }
   const ent = (id) => entreprises.find((e) => e.id === id);
 
   const assignBox = h('div');
@@ -72,7 +75,9 @@ export async function render(body, ctx) {
     const s = sheet({ title: 'Nouvelle visite', body: [h('div', { class: 'list' }, VISIT_TYPES.map((t) => h('button', { class: 'row', onclick: () => { s.close(); createReunion(t.id); } },
       h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, t.nom), h('span', { class: 'row-s' }, t.titre)), h('span', { class: 'chev' }, icon('chev', 18)))))] });
   }
-  async function createReunion(type) {
+  async function createReunion(type) { return createVisit(p, type, ctx.plans || []); }
+  if (ctx.only === 'entreprises') { put(clear(body), h('section', { class: 'card' }, assignBox)); drawAssign(); return; }
+  async function _unused(type) {
     const num = reunions.reduce((m, r) => Math.max(m, r.num), 0) + 1;
     const prev = reunions[0];
     const r = { id: uid(), projectId: p.id, num, type, date: todayISO(), heure: nowTime(), presence: { moe: 'P' }, general: '', avancement: '', autres: prev ? prev.autres || '' : '', prochaine: '', prochaineHeure: prev ? prev.prochaineHeure || '' : '', sent: {}, createdAt: new Date().toISOString() };
@@ -94,6 +99,18 @@ export async function render(body, ctx) {
           h('span', { class: 'row-s' }, Object.keys(r.sent || {}).length ? 'CR envoyés : ' + Object.keys(r.sent).map((k) => k === 'moa' ? 'MOA' : 'lot ' + k).join(', ') : 'CR non diffusé')),
         h('span', { class: 'chev' }, icon('chev', 18))))) : h('div', { class: 'empty' }, 'Aucune réunion. Lors de la visite, posez les points sur les plans, puis créez la réunion pour générer les comptes rendus par lot.')));
   drawAssign();
+}
+
+// Nouvelle visite (réunion de chantier, OPR, réception, levée) : numérotée, reprend les plans de la précédente
+export async function createVisit(p, type, plans) {
+  const reunions = (await db.by('reunions', 'projectId', p.id)).sort((a, b) => b.num - a.num);
+  const num = reunions.reduce((m, r) => Math.max(m, r.num), 0) + 1;
+  const prev = reunions[0];
+  const r = { id: uid(), projectId: p.id, num, type, date: todayISO(), heure: nowTime(), presence: { moe: 'P' }, general: '', avancement: '', autres: prev ? prev.autres || '' : '', prochaine: '', prochaineHeure: prev ? prev.prochaineHeure || '' : '', sent: {}, createdAt: new Date().toISOString() };
+  if (prev && prev.prochaine && prev.prochaine >= todayISO()) r.date = prev.prochaine;
+  r.plans = prev && prev.plans && prev.plans.length ? prev.plans.filter((id) => plans.some((pl) => pl.id === id)) : plans.map((pl) => pl.id);
+  await db.put('reunions', r);
+  location.hash = '#/p/' + p.id + '/chantier?r=' + r.id;
 }
 
 /* ---------------- Réunion ---------------- */
@@ -139,6 +156,15 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
       } }, 'Remplacer')] });
   }
   drawPlans();
+  // Mêmes outils que les notes : écoute / dictée, croquis
+  const listen = listenCard(p, { title: 'Écoute et dictée de la visite', onSummary: async (s) => {
+    const lines = [s.resume.join('\n'), s.decisions.length ? 'Décisions :\n' + s.decisions.map((x) => '— ' + x).join('\n') : '', s.actions.length ? 'Actions :\n' + s.actions.map((a) => { const [t, who, due] = a.split('|').map((x) => (x || '').trim()); return '— ' + t + (who ? ' (' + who + (due && due !== 'non fixée' ? ', ' + due : '') + ')' : ''); }).join('\n') : '', s.suivre.length ? 'À suivre :\n' + s.suivre.map((x) => '— ' + x).join('\n') : ''].filter(Boolean).join('\n\n');
+    r.general = (r.general ? r.general.trimEnd() + '\n\n' : '') + lines; generalEl.value = r.general; await db.put('reunions', r);
+  } });
+  listen.classList.add('card');
+  sketchesOf(r);
+  const book = sketchBook({ p, n: r, save });
+  const generalEl = h('textarea', { class: 'textarea', rows: 6, placeholder: 'Sécurité, propreté, planning, approvisionnements… ou le résumé de l’écoute' });
   const fld = (label, el, cls) => h('label', { class: 'field ' + (cls || '') }, h('span', null, label), el);
   const bind = (key, el) => { el.value = r[key] || ''; el.addEventListener('input', () => { r[key] = el.value; save(); }); return el; };
   const previous = reunions.filter((x) => x.num < r.num).sort((a, b) => b.num - a.num)[0];
@@ -194,8 +220,10 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
       pageAnnots[pg.key] = Object.assign({}, pg, { strokes: (pg.strokes || []).filter(keep), texts: (pg.texts || []).filter(keep) });
     }
     const existing = await db.by('files', 'projectId', p.id);
+    const sketchesData = [];
+    for (const kk of sketchesOf(r)) if (hasContent(kk)) sketchesData.push({ titre: kk.titre, aspect: kk.aspect || 0.62, img: await sketchImage(kk) });
     for (const k of keys) {
-      const blob = await buildCR({ project: p, reunion: r, points, assignments: p.assignments, entreprises, plans, media, pageAnnots, onlyLot: k === 'moa' ? null : k, getSetting: db.setting, previous });
+      const blob = await buildCR({ project: p, reunion: r, points, assignments: p.assignments, entreprises, plans, media, pageAnnots, onlyLot: k === 'moa' ? null : k, getSetting: db.setting, previous, sketchesData });
       const vt = visitType(r.type); const rec = vt.id === 'reception' || vt.id === 'levee' || vt.id === 'opr';
       const name = fileName({ date: r.date, code: fileCode(p), phase: rec ? 'AOR' : 'DET', type: vt.id === 'reception' ? 'PV' : 'CR', objet: vt.obj + '-' + String(r.num).padStart(2, '0') + (k === 'moa' ? '' : '-Lot' + k), ind: 'A', ext: 'pdf' });
       const old = existing.find((f) => f.name === name);
@@ -221,10 +249,10 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
 
   put(clear(body), 
     h('div', { class: 'flexb mb' },
-      h('div', null, h('a', { class: 'crumb', href: '#/p/' + p.id + '/chantier' }, icon('back', 16), 'Chantier'), h('h2', { class: 'title-sm' }, visitType(r.type).nom + ' n°' + r.num)),
+      h('div', null, h('a', { class: 'crumb', href: '#/p/' + p.id + '/journal' }, icon('back', 16), 'Journal'), h('h2', { class: 'title-sm' }, visitType(r.type).nom + ' n°' + r.num)),
       h('div', { class: 'actions' },
         h('a', { class: 'btn', href: r.plans && r.plans[0] ? '#/p/' + p.id + '/plans/' + r.plans[0] + '?v=' + r.id + '&mode=point' : '#/p/' + p.id + '/plans' }, icon('pin', 18), 'Points sur plan'),
-        h('button', { class: 'btn btn-line btn-icon', 'aria-label': 'Supprimer la réunion', onclick: async () => { if (await confirmBox('Supprimer la réunion n°' + r.num + ' ?', 'Supprimer')) { await db.del('reunions', r.id); location.hash = '#/p/' + p.id + '/chantier'; } } }, icon('trash', 18)))),
+        h('button', { class: 'btn btn-line btn-icon', 'aria-label': 'Supprimer la réunion', onclick: async () => { if (await confirmBox('Supprimer la réunion n°' + r.num + ' ?', 'Supprimer')) { await db.del('reunions', r.id); location.hash = '#/p/' + p.id + '/journal'; } } }, icon('trash', 18)))),
     h('div', { class: 'cols' },
       h('div', { class: 'stack' },
         h('section', { class: 'card stack' },
@@ -247,8 +275,10 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
           fld('Autres présents (un par ligne)', bind('autres', h('textarea', { class: 'textarea', rows: 2, placeholder: 'BET structure, bureau de contrôle, coordonnateur SPS…' })))),
         h('section', { class: 'card stack' },
           fld('Avancement des travaux', bind('avancement', h('textarea', { class: 'textarea', rows: 3 }))),
-          fld('Observations générales', bind('general', h('textarea', { class: 'textarea', rows: 4, placeholder: 'Sécurité, propreté, planning, approvisionnements…' })))),
+          fld('Observations générales', bind('general', generalEl))),
+        listen,
         plansBox,
+        book,
         h('section', { class: 'card stack' },
           h('h2', { class: 'section-t', style: { margin: 0 } }, 'Prochaine réunion'),
           h('div', { class: 'grid g2' }, fld('Date', bind('prochaine', h('input', { class: 'input', type: 'date' }))), fld('Heure', bind('prochaineHeure', h('input', { class: 'input', type: 'time' })))),

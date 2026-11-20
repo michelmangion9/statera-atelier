@@ -82,7 +82,7 @@ export async function renderViewer(view, params) {
     h('div', { class: 'v-top dark' },
       h('a', { class: 'tool', href: visit ? '#/p/' + p.id + '/chantier?r=' + visit.id : '#/p/' + p.id + '/plans', 'aria-label': visit ? 'Retour à la visite' : 'Retour aux plans' }, icon('back', 18)),
       h('div', { class: 'v-title' }, h('b', null, plan.nom), titleSub, visit ? h('a', { class: 'v-visit', href: '#/p/' + p.id + '/chantier?r=' + visit.id }, 'Visite n°' + visit.num + ' · ' + fmtShort(visit.date))
-        : h('a', { class: 'v-visit', href: lastVisit ? '#/p/' + p.id + '/plans/' + plan.id + '?v=' + lastVisit.id + '&mode=point' : '#/p/' + p.id + '/chantier', title: 'Les points de chantier se posent dans une visite' }, lastVisit ? 'Plan de base · points : visite n°' + lastVisit.num + ' →' : 'Plan de base · points : créer une visite →')),
+        : h('a', { class: 'v-visit', href: lastVisit ? '#/p/' + p.id + '/plans/' + plan.id + '?v=' + lastVisit.id + '&mode=point' : '#/p/' + p.id + '/journal?new=1', title: 'Les points de chantier se posent dans une visite' }, lastVisit ? 'Plan de base · points : visite n°' + lastVisit.num + ' →' : 'Plan de base · points : créer une visite →')),
       h('div', { class: 'toolbar', role: 'toolbar', 'aria-label': 'Outils' }, toolBtns,
         h('button', { class: 'tool', title: 'Annuler', 'aria-label': 'Annuler la dernière annotation', onclick: doUndo }, icon('undo', 18)),
         layerBtn,
@@ -300,7 +300,7 @@ export async function renderViewer(view, params) {
       h('optgroup', { label: assigned.length ? 'Autres lots' : 'Lots' }, LOTS.filter((l) => !assigned.some((a) => a.lot === l.id)).map((l) => h('option', { value: l.id }, 'Lot ' + l.id + ' · ' + l.nom))));
     lotSelect.value = pt.lot || '';
     const entLine = h('div', { class: 'small muted' });
-    const refreshEnt = () => { const e = entOf(pt.lot); entLine.textContent = pt.lot ? (e ? e.nom + (e.email ? ' · ' + e.email : '') : 'Aucune entreprise affectée à ce lot sur ce chantier (onglet Chantier).') : 'Point repris dans le CR de chaque lot.'; };
+    const refreshEnt = () => { const e = entOf(pt.lot); entLine.textContent = pt.lot ? (e ? e.nom + (e.email ? ' · ' + e.email : '') : 'Aucune entreprise affectée à ce lot sur ce chantier (Journal › Entreprises du chantier).') : 'Point repris dans le CR de chaque lot.'; };
     lotSelect.addEventListener('change', () => { pt.lot = lotSelect.value; refreshEnt(); save(); fillLotFilter(); });
     refreshEnt();
     const seg = (list, key, after) => h('div', { class: 'seg', role: 'group', style: { display: 'flex' } }, list.map((o) => h('button', { 'aria-pressed': String(pt[key] === o.id), style: { flex: 1 }, onclick: (e) => { pt[key] = o.id; e.currentTarget.parentElement.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === e.currentTarget))); after && after(o.id); save(); } }, o.nom)));

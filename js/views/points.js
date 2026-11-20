@@ -31,7 +31,7 @@ export async function render(body, { project: p, points, plans }) {
     if (lotF !== 'tous') list = list.filter((x) => (x.lot || '—') === lotF);
     if (planF !== 'tous') list = list.filter((x) => x.planId === planF);
     if (visF !== 'toutes') list = list.filter((x) => (x.visiteId || '—') === visF);
-    if (!list.length) { box.appendChild(h('div', { class: 'empty' }, points.length ? 'Aucun point pour ce filtre.' : 'Aucun point. Les points se posent pendant une visite : onglet Chantier › la visite du jour › Plans de la visite › Annoter.')); return; }
+    if (!list.length) { box.appendChild(h('div', { class: 'empty' }, points.length ? 'Aucun point pour ce filtre.' : 'Aucun point. Les points se posent pendant une visite : Journal › la réunion du jour › Plans de la visite › Annoter.')); return; }
     box.appendChild(h('div', { class: 'list' }, list.map((pt) => {
       const pl = plans.find((x) => x.id === pt.planId);
       const e = entOf(pt.lot);
@@ -55,7 +55,7 @@ export async function render(body, { project: p, points, plans }) {
   const visSel = h('select', { class: 'select', 'aria-label': 'Visite', style: { maxWidth: '280px' } }, h('option', { value: 'toutes' }, 'Toutes les visites'),
     reunions.map((r) => h('option', { value: r.id }, 'Visite n°' + r.num + ' · ' + fmtShort(r.date))), points.some((x) => !x.visiteId) ? h('option', { value: '—' }, 'Hors visite') : null);
   visSel.addEventListener('change', () => { visF = visSel.value; draw(); });
-  const intro = h('div', { class: 'small muted mb' }, 'Synthèse de toutes les observations du chantier : ce qui reste à régler, ce qui a été levé, par lot, par entreprise et par visite. Les points se posent dans les visites (onglet Chantier).');
+  const intro = h('div', { class: 'small muted mb' }, 'Synthèse de toutes les observations du chantier : ce qui reste à régler, ce qui a été levé, par lot, par entreprise et par visite. Les points se posent dans les visites (Journal › réunion de chantier).');
 
   put(clear(body), intro,
     points.length ? summary : null,

@@ -113,7 +113,7 @@ export function editEntreprise(existing, defaults = {}, chantiers = []) {
         h('div', { class: 'grid g3' }, fld('Assureur', inp('decAssureur')), fld('N° de police', inp('decPolice')), fld('Valide jusqu’au', inp('decFin', { type: 'date' }))),
         attBox,
         fld('Notes', (() => { const t = h('textarea', { class: 'textarea', rows: 3 }); t.value = e.notes || ''; t.addEventListener('input', () => (e.notes = t.value)); return t; })()),
-        chantiers.length ? h('div', null, h('div', { class: 'section-t' }, 'Chantiers'), chantiers.map((p) => h('a', { class: 'kv', href: '#/p/' + p.id + '/chantier', style: { textDecoration: 'none' } }, h('span', null, p.nom), h('span', { class: 'small' }, (p.assignments || []).filter((a) => a.entrepriseId === e.id).map((a) => 'lot ' + a.lot).join(', '))))) : null,
+        chantiers.length ? h('div', null, h('div', { class: 'section-t' }, 'Chantiers'), chantiers.map((p) => h('a', { class: 'kv', href: '#/p/' + p.id + '/journal', style: { textDecoration: 'none' } }, h('span', null, p.nom), h('span', { class: 'small' }, (p.assignments || []).filter((a) => a.entrepriseId === e.id).map((a) => 'lot ' + a.lot).join(', '))))) : null,
         existing ? h('div', { class: 'actions' },
           e.tel ? h('a', { class: 'btn btn-sm btn-line', href: 'tel:' + e.tel.replace(/\s/g, '') }, icon('phone', 16), 'Appeler') : null,
           e.email ? h('a', { class: 'btn btn-sm btn-line', href: 'mailto:' + e.email }, icon('mail', 16), 'E-mail') : null) : null],

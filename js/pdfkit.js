@@ -364,7 +364,7 @@ export async function planCrop(plan, pageIndex, point, cache, { w = 420, hgt = 2
 }
 
 /* ---------- Compte rendu de réunion de chantier (complet ou par lot) ---------- */
-export async function buildCR({ project, reunion, points, assignments, entreprises, plans, media, pageAnnots, onlyLot, getSetting, previous }) {
+export async function buildCR({ project, reunion, points, assignments, entreprises, plans, media, pageAnnots, onlyLot, getSetting, previous, sketchesData }) {
   const cab = await cabinet(getSetting);
   const ent = (id) => entreprises.find((e) => e.id === id);
   const lotLabel = (lid) => (lid === '—' || !lid) ? 'Généralités' : lotLabelOf(lid);
@@ -478,6 +478,11 @@ export async function buildCR({ project, reunion, points, assignments, entrepris
       d.p.drawText('Lu et approuvé, date :', { x: x + 6, y: d.y - 28, size: 7, font: d.f.r, color: d.c.grey });
     });
     d.y -= 84;
+  }
+  for (const k of sketchesData || []) {
+    const W2 = A4[0] - 2 * M; const hh = Math.min(W2 * k.aspect, 520); const ww = hh / k.aspect;
+    d.ensure(hh + 50); d.h2(sketchesData.length > 1 ? 'Croquis · ' + k.titre : 'Croquis');
+    const ih = await d.image(k.img, M, d.y, ww, hh); d.y -= ih + 10;
   }
   if (reunion.prochaine) { d.h2('Prochaine réunion'); d.para(fmtDate(reunion.prochaine, true) + (reunion.prochaineHeure ? ' à ' + reunion.prochaineHeure : '') + ' · sur site', { size: 10 }); }
   const mention = (await getSetting('mentionCR', null)) || MENTION_CR;

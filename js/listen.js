@@ -67,7 +67,7 @@ async function startSession(p) {
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
   catch (e) { toast('Micro refusé : autorise le micro pour l’Atelier'); return; }
   const text = await loadTranscript(p);
-  Object.assign(S, { on: true, pid: p.id, nom: p.nom || p.client || 'Projet', pinfo: { id: p.id, code: p.code, phase: p.phase, nom: p.nom, client: p.client, drive: p.drive }, text, interim: '', t0: Date.now(), chunks: [] });
+  Object.assign(S, { on: true, back: location.hash.split('?')[0] + (location.hash.includes('?') ? '?' + location.hash.split('?')[1] : ''), pid: p.id, nom: p.nom || p.client || 'Projet', pinfo: { id: p.id, code: p.code, phase: p.phase, nom: p.nom, client: p.client, drive: p.drive }, text, interim: '', t0: Date.now(), chunks: [] });
   try {
     const media = new MediaRecorder(stream); S.media = media;
     media.ondataavailable = (e) => e.data.size && S.chunks.push(e.data);
@@ -122,17 +122,18 @@ document.addEventListener('visibilitychange', async () => {
 // Bandeau flottant visible partout pendant l'écoute : revenir au RDV ou arrêter, depuis n'importe quelle page
 let floatEl = null;
 function drawFloat() {
-  const onRdv = (location.hash || '').startsWith('#/p/' + S.pid + '/rdv');
-  if (!S.on || onRdv) { if (floatEl) { floatEl.remove(); floatEl = null; } return; }
+  const back = S.back || '#/p/' + S.pid + '/rdv';
+  const here = (location.hash || '') === back;
+  if (!S.on || here) { if (floatEl) { floatEl.remove(); floatEl = null; } return; }
   if (!floatEl) { floatEl = h('div', { class: 'listen-float', role: 'status', 'aria-live': 'off' }); document.body.appendChild(floatEl); }
   put(clear(floatEl), h('span', { class: 'lf-dot', 'aria-hidden': 'true' }),
     h('span', { class: 'lf-t' }, h('b', null, 'Écoute en cours'), ' · ' + elapsed() + ' · ' + S.nom),
-    h('a', { class: 'lf-btn', href: '#/p/' + S.pid + '/rdv' }, 'Revenir au RDV'),
-    h('button', { class: 'lf-btn lf-stop', onclick: () => { stopSession(); location.hash = '#/p/' + S.pid + '/rdv'; } }, 'Arrêter'));
+    h('a', { class: 'lf-btn', href: back }, 'Revenir'),
+    h('button', { class: 'lf-btn lf-stop', onclick: () => { stopSession(); location.hash = back; } }, 'Arrêter'));
 }
 window.addEventListener('hashchange', drawFloat);
 
-export function listenCard(p, { onNote } = {}) {
+export function listenCard(p, { onNote, onSummary, title } = {}) {
   p.rdv = p.rdv || {};
   const mine = () => S.pid === p.id;
   const save = () => db.put('projects', p);
@@ -199,6 +200,12 @@ export function listenCard(p, { onNote } = {}) {
   async function makeNote() {
     const s = parseSummary(sumBox.value);
     if (!s.resume.length && !s.decisions.length && !s.actions.length) { toast('Colle d’abord la réponse de Gemini'); return; }
+    if (onSummary) {
+      await onSummary(s, getText());
+      await setTranscript(p.id, ''); tx.value = ''; sumBox.value = '';
+      toast('Ajouté : ' + s.decisions.length + ' décision(s), ' + s.actions.length + ' action(s)');
+      return;
+    }
     const todos = s.actions.map((a) => { const [text, who, due] = a.split('|').map((x) => (x || '').trim()); return { text, who: who || '', due: due || '', done: false }; });
     const n = { id: uid(), projectId: p.id, type: 'rdv', titre: 'Rendez-vous du ' + fmtDate(todayISO()), date: todayISO(), heure: nowTime(), lieu: '', participants: p.client || '',
       agenda: [], body: s.resume.join('\n') + (s.suivre.length ? '\n\nÀ suivre :\n' + s.suivre.map((x) => '— ' + x).join('\n') : '') + (s.rdv.length ? '\n\nProchain rendez-vous : ' + s.rdv.join(' ') : ''),
@@ -211,7 +218,7 @@ export function listenCard(p, { onNote } = {}) {
   }
 
   const card = h('section', { class: 'rdv-card listen' },
-    h('h2', null, 'Écoute du rendez-vous'),
+    h('h2', null, title || 'Écoute du rendez-vous'),
     h('label', { class: 'listen-consent' }, consent, h('span', null, 'Le client est informé que l’échange est enregistré pour en faire le compte rendu, et il est d’accord.')),
     h('div', { class: 'listen-bar' }, btn, status),
     live, tx,
@@ -219,7 +226,7 @@ export function listenCard(p, { onNote } = {}) {
       gemBtn, gemHint),
     sumBox,
     h('div', { class: 'listen-steps' },
-      h('button', { class: 'btn btn-primary', onclick: makeNote }, icon('note', 18), '2 · Créer la note'),
-      h('span', { class: 'small muted' }, 'Résumé, décisions et actions deviennent une note du projet, exportable en compte rendu PDF.')));
+      h('button', { class: 'btn btn-primary', onclick: makeNote }, icon('note', 18), onSummary ? '2 · Ajouter au compte rendu' : '2 · Créer la note'),
+      h('span', { class: 'small muted' }, onSummary ? 'Le résumé, les décisions et les actions s’ajoutent à cette séance (rien n’est remplacé).' : 'Résumé, décisions et actions deviennent une note du projet, exportable en compte rendu PDF.')));
   return card;
 }

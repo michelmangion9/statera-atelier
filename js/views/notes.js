@@ -6,6 +6,7 @@ import { miniSketch } from '../ink.js';
 import { sketchBook, sketchesOf, sketchImage, hasContent } from '../sketchbook.js';
 import { addPhotos, photoThumb, openPhotoEditor } from './photo.js';
 import { loadProject } from './project.js';
+import { listenCard } from '../listen.js';
 
 export function renderList(body, { project: p, notes }) {
   let filter = 'tous';
@@ -52,7 +53,7 @@ export async function renderEditor(view, params) {
     return;
   }
   const n = await db.get('notes', params.noteId);
-  if (!n) { location.replace('#/p/' + p.id + '/notes'); return; }
+  if (!n) { location.replace('#/p/' + p.id + '/journal'); return; }
   n.agenda = n.agenda || []; n.decisions = n.decisions || []; n.todos = n.todos || []; n.photos = n.photos || [];
 
   const saved = h('span', { class: 'saved', 'aria-live': 'polite' });
@@ -60,7 +61,7 @@ export async function renderEditor(view, params) {
   const bind = (key, el) => { el.value = n[key] ?? ''; el.addEventListener('input', () => { n[key] = el.value; save(); }); return el; };
   const fld = (label, el, cls) => h('label', { class: 'field ' + (cls || '') }, h('span', null, label), el);
 
-  const typeSel = h('select', { class: 'select' }, NOTE_TYPES.map((t) => h('option', { value: t.id }, t.nom)));
+  const typeSel = h('select', { class: 'select' }, NOTE_TYPES.filter((t) => !t.hidden || t.id === n.type).map((t) => h('option', { value: t.id }, t.nom)));
   typeSel.value = n.type;
   typeSel.addEventListener('change', () => {
     n.type = typeSel.value;
@@ -111,11 +112,21 @@ export async function renderEditor(view, params) {
     photoBox.appendChild(h('button', { class: 'photo photo-add', type: 'button', onclick: async () => { const ms = await addPhotos(p.id, { camera: false }); n.photos.push(...ms.map((m) => m.id)); save(); drawPhotos(); } }, icon('camera', 22), 'Ajouter'));
   };
 
-  const back = '#/p/' + p.id + '/notes';
+  const back = '#/p/' + p.id + '/journal';
+  // Écoute / dictée : le résumé de Gemini s'ajoute à cette séance
+  const listen = listenCard(p, { title: 'Écoute et dictée', onSummary: async (s) => {
+    const add = [s.resume.join('\n'), s.suivre.length ? 'À suivre :\n' + s.suivre.map((x) => '— ' + x).join('\n') : '', s.rdv.length && !/non fix/i.test(s.rdv.join(' ')) ? 'Prochain rendez-vous : ' + s.rdv.join(' ') : ''].filter(Boolean).join('\n\n');
+    if (add) { n.body = (n.body ? n.body.trimEnd() + '\n\n' : '') + add; bodyEl.value = n.body; }
+    n.decisions.push(...s.decisions.map((text) => ({ text })));
+    n.todos.push(...s.actions.map((a) => { const [text, who, due] = a.split('|').map((x) => (x || '').trim()); return { text, who: who || '', due: /^\d{4}-\d{2}-\d{2}$/.test(due || '') ? due : '', done: false }; }));
+    drawDec(); drawTodo(); await db.put('notes', n);
+  } });
+  listen.classList.add('card');
+  const bodyEl = bind('body', h('textarea', { class: 'textarea', rows: 10, placeholder: 'Écrire, ou dicter avec le micro du clavier… Pour un échange long, utilise l’écoute ci-dessous.', style: { minHeight: '220px', fontSize: '17px' } }));
   clear(view).appendChild(h('div', { class: 'page' },
     h('header', { class: 'page-head' },
       h('div', { style: { flex: '1 1 420px' } },
-        h('a', { class: 'crumb', href: back }, icon('back', 16), p.nom, h('span', { class: 'dotsep' }), 'Notes'),
+        h('a', { class: 'crumb', href: back }, icon('back', 16), p.nom, h('span', { class: 'dotsep' }), 'Journal'),
         bind('titre', h('input', { class: 'title', placeholder: noteType(n.type).nom + ' du ' + fmtDate(n.date), 'aria-label': 'Titre de la note', style: { border: 0, background: 'transparent', width: '100%', padding: 0, outline: 'none' } }))),
       h('div', { class: 'actions' }, saved,
         h('button', { class: 'btn', onclick: exportPDF }, icon('share', 18), 'Compte rendu PDF'))),
@@ -126,7 +137,8 @@ export async function renderEditor(view, params) {
           fld('Participants', bind('participants', h('input', { class: 'input' })))),
         h('section', { class: 'card stack' },
           h('h2', { class: 'section-t', style: { margin: 0 } }, 'Notes'),
-          bind('body', h('textarea', { class: 'textarea', rows: 10, placeholder: 'Écrire ou dicter (micro du clavier)…', style: { minHeight: '220px', fontSize: '17px' } }))),
+          bodyEl),
+        listen,
         book),
       h('div', { class: 'stack' },
         h('section', { class: 'card stack' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Ordre du jour'), agendaBox,

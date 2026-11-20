@@ -56,13 +56,14 @@ export const visitType = (id) => VISIT_TYPES.find((v) => v.id === id) || VISIT_T
 export const MENTION_CR = 'Sauf observations écrites adressées à la maîtrise d’œuvre dans un délai de 8 jours à compter de sa diffusion, le présent compte rendu est réputé accepté par l’ensemble des destinataires. Les entreprises absentes ou excusées sont réputées en avoir pris connaissance et sont tenues d’exécuter les prescriptions qui les concernent.';
 
 export const NOTE_TYPES = [
+  { id: 'reflexion', nom: 'Note / réflexion', court: 'NOTE' },
   { id: 'rdv', nom: 'RDV client', court: 'RDV CLIENT' },
   { id: 'site', nom: 'Visite de site', court: 'VISITE DE SITE' },
   { id: 'presentation', nom: 'Présentation de phase', court: 'PRÉSENTATION' },
   { id: 'urbanisme', nom: 'RDV urbanisme / mairie', court: 'URBANISME' },
   { id: 'bet', nom: 'Réunion BET / partenaires', court: 'BET' },
   { id: 'appel', nom: 'Appel téléphonique', court: 'APPEL' },
-  { id: 'libre', nom: 'Note libre', court: 'NOTE' }
+  { id: 'libre', nom: 'Note libre', court: 'NOTE', hidden: true }
 ];
 export const noteType = (id) => NOTE_TYPES.find((t) => t.id === id) || NOTE_TYPES[NOTE_TYPES.length - 1];
 

@@ -125,7 +125,7 @@ export function render(body, { project: p, plans, points }) {
   const sorted = plans.slice().sort((a, b) => PHASES.findIndex((x) => x.id === b.phase) - PHASES.findIndex((x) => x.id === a.phase) || (a.nom || '').localeCompare(b.nom || ''));
   put(clear(body), 
     h('div', { class: 'flexb mb' },
-      h('div', { class: 'small muted' }, 'Les plans de base du projet. Pour poser des points de chantier, ouvre une visite dans l’onglet Chantier : chaque visite reprend ses plans, avec son propre calque.'),
+      h('div', { class: 'small muted' }, 'Les plans de base du projet. Pour poser des points de chantier, ouvre une réunion de chantier dans le Journal : chaque visite reprend ses plans, avec son propre calque.'),
       h('div', { class: 'actions' }, driveBtn(), h('button', { class: 'btn btn-primary', onclick: add }, icon('plus', 18), 'Importer un plan'))),
     !plans.length ? h('div', { class: 'empty' }, h('div', { class: 'title-sm' }, 'Aucun plan'),
       h('div', null, 'Importez un PDF (export AutoCAD, planche de permis, plan EXE) ou une photo de plan.'),
