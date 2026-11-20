@@ -1,6 +1,6 @@
 // PDF : lecture (pdf.js) et fabrication de documents (pdf-lib) aux couleurs de STATERA
 import { loadScript, fmtDate, fmtShort, blobToDataURL } from './lib.js';
-import { LOGO_VB, LOGO_PATHS } from './brand.js';
+import { LOGO_VB, LOGO_PATHS, LOGO_TF } from './brand.js';
 import { drawStrokes } from './ink.js';
 import { lot as lotOf, lotLabel as lotLabelOf, status as statusOf, noteType, CABINET_DEFAULT, visitType, MENTION_CR, phase as phaseOf } from './data.js';
 
@@ -139,9 +139,11 @@ class Doc {
   logo(page, x, yTop, width, color) {
     const [vx, vy, vw] = LOGO_VB.split(/\s+/).map(Number);
     const k = width / vw;
-    const maxX = vx + vw;
-    const clip = (d) => d.split(/(?=M)/).filter((sp) => { const n = (sp.match(/-?\d+\.?\d*/g) || []).map(Number); return n.every((v, i) => i % 2 || v <= maxX + 1); }).join('');
-    LOGO_PATHS.map(clip).forEach((d) => d && page.drawSvgPath(d, { x: x - vx * k, y: yTop + vy * k, scale: k, color: color || this.c.ink, borderWidth: 0 }));
+    LOGO_PATHS.forEach((d, i) => {
+      const t = LOGO_TF[i];
+      const ox = x - vx * k + (t ? t.tx * k : 0), oy = yTop + vy * k - (t ? t.ty * k : 0);
+      page.drawSvgPath(d, { x: ox, y: oy, scale: k * (t ? t.k : 1), color: color || this.c.ink, borderWidth: 0 });
+    });
     return width * (Number(LOGO_VB.split(/\s+/)[3]) / vw);
   }
   newPage(first, size) {
