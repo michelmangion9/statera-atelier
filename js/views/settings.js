@@ -33,6 +33,14 @@ export async function render(view) {
           fld('Mention en fin de CR', mentionEl),
           h('div', { class: 'small muted' }, 'Texte libre, à faire valider si vous souhaitez lui donner une portée contractuelle.')),
         h('section', { class: 'card stack' },
+          h('h2', { class: 'section-t', style: { margin: 0 } }, 'Version de l’application'),
+          (() => { const v = h('div', { class: 'small' }, '…'); caches.keys().then((k) => { v.textContent = 'Version installée : ' + ((k.find((x) => x.startsWith('atelier-')) || 'aucune').replace('atelier-', '')); }).catch(() => { v.textContent = 'Version : en ligne'; }); return v; })(),
+          h('button', { class: 'btn btn-line', style: { alignSelf: 'flex-start' }, onclick: async () => {
+            try { (await navigator.serviceWorker.getRegistrations()).forEach((r) => r.unregister()); (await caches.keys()).forEach((k) => caches.delete(k)); } catch (e) { /* rien */ }
+            toast('Mise à jour…'); setTimeout(() => location.reload(), 600);
+          } }, 'Forcer la mise à jour'),
+          h('div', { class: 'small muted' }, 'Tes projets ne sont pas touchés : seule l’application est rechargée.')),
+        h('section', { class: 'card stack' },
           h('h2', { class: 'section-t', style: { margin: 0 } }, 'Écoute IA · Gemini'),
           (() => { const st = h('div', { class: 'small muted' }, 'Vérification…'); fetch('/api/resume', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { st.textContent = j && j.configured ? 'Gemini est activé : le résumé des rendez-vous se fait automatiquement.' : 'Gemini n’est pas encore activé sur le serveur : le résumé passe par un copier-coller dans Gemini.'; }).catch(() => { st.textContent = 'Hors ligne ou aperçu : le résumé passe par un copier-coller dans Gemini.'; }); return st; })(),
           (() => { const i = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'Code d’accès IA (ATELIER_TOKEN)' }); try { i.value = localStorage.getItem('statera-atelier-ia') || ''; } catch (e) { /* stockage */ } i.addEventListener('change', () => { try { localStorage.setItem('statera-atelier-ia', i.value.trim()); toast('Code enregistré sur cet appareil'); } catch (e) { /* stockage */ } }); return fld('Code d’accès IA', i); })()),

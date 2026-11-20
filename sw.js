@@ -1,7 +1,7 @@
 /* STATERA Atelier — service worker
    Navigation : réseau d'abord, repli hors ligne sur index.html.
    Ressources : précache versionné, purge des anciens caches. */
-const VERSION = 'atelier-v1.3.2';
+const VERSION = 'atelier-v1.3.3';
 const PRECACHE = [
   './', './index.html', './manifest.json', './css/app.css',
   './js/app.js', './js/lib.js', './js/db.js', './js/data.js', './js/ink.js', './js/pdfkit.js', './js/demo.js', './js/brand.js', './js/seed-entreprises.js',
@@ -19,7 +19,7 @@ const PRECACHE = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -49,13 +49,13 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  e.respondWith(
-    caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-      if (res.ok && !res.redirected && res.type === 'basic') {
-        const copy = res.clone();
-        caches.open(VERSION).then((c) => c.put(req, copy));
-      }
-      return res;
-    }))
-  );
+  // Code de l'app (js, css, json) : réseau d'abord, pour que chaque mise à jour arrive tout de suite ;
+  // cache seulement hors ligne. Bibliothèques, polices et images : cache d'abord.
+  const code = /\.(js|mjs|css|json)$/.test(url.pathname) && !url.pathname.startsWith('/vendor/');
+  const save = (res) => { if (res.ok && !res.redirected && res.type === 'basic') { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); } return res; };
+  if (code) {
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(save).catch(() => caches.match(req)));
+    return;
+  }
+  e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then(save)));
 });

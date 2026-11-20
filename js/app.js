@@ -74,7 +74,13 @@ window.addEventListener('hashchange', route);
 
 
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !location.hostname.endsWith('claudeusercontent.com')) {
-  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => { /* hors ligne indisponible */ });
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((reg) => {
+    // Vérifie les mises à jour à chaque retour dans l'app (iPad/iPhone gardent l'app ouverte en arrière-plan)
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => { /* hors ligne indisponible */ });
+  let reloaded = false;
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
 }
 askPersist();
 try { const saved = await db.setting('lots', null); const v = await db.setting('lotsVersion', 1); if (Array.isArray(saved) && saved.length && v === LOTS_VERSION) setLots(saved); } catch (e) { /* liste par défaut */ }
