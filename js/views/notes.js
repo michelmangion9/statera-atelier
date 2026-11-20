@@ -2,7 +2,8 @@
 import { h, put, clear, icon, uid, debounce, toast, fmtDate, todayISO, nowTime, confirmBox, shareOrDownload } from '../lib.js';
 import { db } from '../db.js';
 import { NOTE_TYPES, noteType, AGENDAS, phase, fileName, fileCode, destFor } from '../data.js';
-import { sketchSurface, miniSketch, penPicker, penPrefs, savePenPrefs } from '../ink.js';
+import { miniSketch } from '../ink.js';
+import { sketchBook, sketchesOf, sketchImage, hasContent } from '../sketchbook.js';
 import { addPhotos, photoThumb, openPhotoEditor } from './photo.js';
 import { loadProject } from './project.js';
 
@@ -95,45 +96,9 @@ export async function renderEditor(view, params) {
       h('button', { class: 'btn btn-icon btn-sm btn-ghost', 'aria-label': 'Retirer', onclick: () => { n.todos.splice(i, 1); drawTodo(); save(); } }, icon('close', 16)))));
   };
 
-  // Croquis
-  let pen = 'stylo';
-  const bgCls = () => (penPrefs.bg === 'points' ? 'sketch-dots' : '');
-  const sk = h('div', { class: 'sketch-wrap ' + bgCls(), style: { aspectRatio: String(1 / (n.sketchAspect || 0.62)) } });
-  const picker = penPicker({ light: true, withFinger: true, onFinger: (on) => sk.classList.toggle('finger', on) });
-  if (penPrefs.finger) sk.classList.add('finger');
-  const PEN_TOOLS = [['stylo', 'Stylo'], ['feutre', 'Feutre'], ['surligneur', 'Surligneur'], ['regle', 'Règle'], ['gomme', 'Gomme']];
-  const makePenBtns = (pk) => { const bs = PEN_TOOLS.map(([id, label]) =>
-    h('button', { class: 'tool', 'aria-pressed': String(pen === id), title: id === 'regle' ? 'Traits droits ; un trait qui part d’une extrémité s’y raccroche' : null, onclick: (e) => { pen = id; pk.setMode(id === 'regle' ? 'stylo' : id); bs.forEach((b) => b.setAttribute('aria-pressed', String(b === e.currentTarget))); } }, label)); return bs; };
-  const penBtns = makePenBtns(picker);
-  const bgBtn = () => h('button', { class: 'tool', title: 'Fond de la feuille', onclick: (e) => { penPrefs.bg = penPrefs.bg === 'points' ? 'uni' : 'points'; savePenPrefs(); document.querySelectorAll('.sketch-wrap').forEach((w) => w.classList.toggle('sketch-dots', penPrefs.bg === 'points')); e.currentTarget.textContent = penPrefs.bg === 'points' ? 'Fond : points' : 'Fond : uni'; } }, penPrefs.bg === 'points' ? 'Fond : points' : 'Fond : uni');
-
-  // Croquis en plein écran
-  function openFull() {
-    const asp = n.sketchAspect || 0.62;
-    const pk = penPicker({ light: true, withFinger: true, onFinger: (on) => box.classList.toggle('finger', on) });
-    pk.setMode(pen === 'regle' ? 'stylo' : pen);
-    const box = h('div', { class: 'sketch-wrap ' + bgCls() + (penPrefs.finger ? ' finger' : '') });
-    const bs = makePenBtns(pk);
-    let fs;
-    const close = () => { full.remove(); document.removeEventListener('keydown', onKey); window.removeEventListener('resize', fit); clear(sk); surf = sketchSurface(sk, surfOpts()); };
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
-    const full = h('div', { class: 'full sk-full', role: 'dialog', 'aria-label': 'Croquis plein écran' },
-      h('div', { class: 'sk-full-bar' },
-        h('div', { class: 'toolbar' }, bs, h('button', { class: 'tool', 'aria-label': 'Annuler le dernier trait', onclick: () => fs.undo() }, icon('undo', 18)), bgBtn()),
-        h('button', { class: 'btn btn-primary', onclick: close }, icon('check', 18), 'Terminer')),
-      pk.el,
-      h('div', { class: 'sk-full-stage' }, box),
-      h('div', { class: 'small muted sk-full-hint' }, 'Garde le stylet immobile une demi-seconde en fin de trait : il devient droit (ou rectangle, cercle). Outil Règle : que des traits droits.'));
-    document.body.appendChild(full);
-    const fit = () => {
-      const st = full.querySelector('.sk-full-stage').getBoundingClientRect();
-      const w = Math.min(st.width, st.height / asp);
-      box.style.width = w + 'px'; box.style.height = w * asp + 'px';
-    };
-    requestAnimationFrame(() => { fit(); fs = sketchSurface(box, Object.assign(surfOpts(), { strokes: n.sketch || [] })); });
-    window.addEventListener('resize', fit);
-    document.addEventListener('keydown', onKey);
-  }
+  // Croquis : plusieurs croquis, fond photo ou plan, calques
+  sketchesOf(n);
+  const book = sketchBook({ p, n, save });
 
   // Photos
   const photoBox = h('div', { class: 'photos' });
@@ -162,14 +127,7 @@ export async function renderEditor(view, params) {
         h('section', { class: 'card stack' },
           h('h2', { class: 'section-t', style: { margin: 0 } }, 'Notes'),
           bind('body', h('textarea', { class: 'textarea', rows: 10, placeholder: 'Écrire ou dicter (micro du clavier)…', style: { minHeight: '220px', fontSize: '17px' } }))),
-        h('section', { class: 'card stack' },
-          h('div', { class: 'flexb' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Croquis'),
-            h('div', { class: 'toolbar' }, penBtns, h('button', { class: 'tool', 'aria-label': 'Annuler le dernier trait', onclick: () => surf.undo() }, icon('undo', 18)),
-              h('button', { class: 'tool', onclick: async () => { if (await confirmBox('Effacer tout le croquis ?', 'Effacer')) surf.clear(); } }, 'Effacer'),
-              h('button', { class: 'tool tool-strong', onclick: openFull }, icon('fit', 18), 'Agrandir'))),
-          h('div', { class: 'flexb' }, picker.el, bgBtn()),
-          sk,
-          h('div', { class: 'small muted' }, 'Garde le stylet immobile une demi-seconde en fin de trait pour le rendre droit (ou un rectangle, un cercle). Apple Pencil : paume ignorée ; au doigt, active « Doigt ».'))),
+        book),
       h('div', { class: 'stack' },
         h('section', { class: 'card stack' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Ordre du jour'), agendaBox,
           h('button', { class: 'btn btn-sm btn-line', style: { alignSelf: 'flex-start' }, onclick: () => { n.agenda.push({ text: '', done: false }); drawAgenda(); save(); } }, icon('plus', 16), 'Point')),
@@ -180,8 +138,6 @@ export async function renderEditor(view, params) {
         h('section', { class: 'card stack' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Photos'), photoBox),
         h('button', { class: 'btn btn-line', onclick: async () => { if (await confirmBox('Supprimer cette note ?', 'Supprimer')) { await db.del('notes', n.id); location.hash = back; } } }, icon('trash', 18), 'Supprimer la note')))));
   window.scrollTo(0, 0);
-  const surfOpts = () => ({ strokes: n.sketch || [], aspect: n.sketchAspect || 0.62, getPen: () => pen, finger: () => !!penPrefs.finger, onChange: (s) => { n.sketch = s.slice(); save(); } });
-  let surf = sketchSurface(sk, surfOpts());
   drawAgenda(); drawDec(); drawTodo(); drawPhotos();
 
   async function exportPDF() {
@@ -190,7 +146,9 @@ export async function renderEditor(view, params) {
     const { buildNotePDF, photoComposite } = await import('../pdfkit.js');
     const photosData = [];
     for (const id of n.photos) { const m = await db.get('media', id); if (m) photosData.push(await photoComposite(m, 1000)); }
-    const blob = await buildNotePDF({ project: p, note: { ...n, photosData }, getSetting: db.setting });
+    const sketchesData = [];
+    for (const k of sketchesOf(n)) if (hasContent(k)) sketchesData.push({ titre: k.titre, aspect: k.aspect || 0.62, img: await sketchImage(k) });
+    const blob = await buildNotePDF({ project: p, note: { ...n, photosData, sketchesData }, getSetting: db.setting });
     const ph = phase(n.phase || p.phase);
     const name = fileName({ date: n.date, code: fileCode(p), phase: ph.id, type: 'CR', objet: n.titre || noteType(n.type).nom, ind: 'A', ext: 'pdf' });
     const existing = (await db.by('files', 'projectId', p.id)).find((f) => f.noteId === n.id);

@@ -520,7 +520,15 @@ export async function buildNotePDF({ project, note, getSetting }) {
   if (dec.length) { d.h2('Décisions'); dec.forEach((x) => d.para('—  ' + x.text, { size: 9.8, gap: 2 })); }
   const todo = (note.todos || []).filter((x) => x.text);
   if (todo.length) { d.h2('Actions'); d.table(['Action', 'Qui', 'Échéance', 'Fait'], todo.map((x) => [x.text, x.who || '', x.due ? fmtShort(x.due) : '', x.done ? 'Oui' : '']), [0.56, 0.18, 0.14, 0.12]); }
-  if (note.sketch && note.sketch.length) {
+  if (note.sketchesData) {
+    for (const k of note.sketchesData) {
+      const W = A4[0] - 2 * M; const hh = Math.min(W * k.aspect, 520); const ww = hh / k.aspect;
+      d.ensure(hh + 50);
+      d.h2(note.sketchesData.length > 1 ? 'Croquis · ' + k.titre : 'Croquis');
+      const ih = await d.image(k.img, M, d.y, ww, hh);
+      d.y -= ih + 10;
+    }
+  } else if (note.sketch && note.sketch.length) {
     const aspect = note.sketchAspect || 0.62;
     d.ensure(Math.min((A4[0] - 2 * M) * aspect, 340) + 50);
     d.h2('Croquis');

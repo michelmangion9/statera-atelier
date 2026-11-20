@@ -384,3 +384,17 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .pin.leve button { background: var(--paper); }
 .pin.prev button { opacity: .55; }
 .v-visit { display: block; width: max-content; margin-left: 8px; font-size: 12px; padding: 1px 8px; border: 1px solid currentColor; color: inherit; text-decoration: none; }
+
+/* Carnet de croquis : onglets, fond photo/plan, calques */
+.sk-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.sk-tab { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 14px; border: 1px solid var(--beton); background: #fff; font: inherit; font-size: 14px; color: inherit; cursor: pointer; }
+.sk-tab[aria-selected="true"] { background: #161616; color: #fff; border-color: #161616; }
+.sk-add { border-style: dashed; color: var(--muted, #6b6862); }
+.sk-tag { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
+.sketch-wrap img.sk-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; user-select: none; -webkit-user-select: none; }
+.sk-op { display: inline-flex; align-items: center; gap: 8px; }
+.sk-op input { width: 110px; accent-color: #161616; }
+.row-btn { cursor: pointer; font: inherit; }
+.row-btn svg { flex-shrink: 0; }
+.mini-sk { position: relative; }
+.mini-sk img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }

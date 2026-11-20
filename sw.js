@@ -1,13 +1,13 @@
 /* STATERA Atelier — service worker
    Navigation : réseau d'abord, repli hors ligne sur index.html.
    Ressources : précache versionné, purge des anciens caches. */
-const VERSION = 'atelier-v1.6.2';
+const VERSION = 'atelier-v1.7.0';
 const PRECACHE = [
   './', './index.html', './manifest.json', './css/app.css',
   './js/app.js', './js/lib.js', './js/db.js', './js/data.js', './js/ink.js', './js/pdfkit.js', './js/demo.js', './js/brand.js', './js/seed-entreprises.js',
   './js/views/projects.js', './js/views/project.js', './js/views/notes.js', './js/views/plans.js',
   './js/views/viewer.js', './js/views/points.js', './js/views/files.js', './js/views/chantier.js',
-  './js/views/entreprises.js', './js/views/settings.js', './js/views/photo.js', './js/views/rdv.js', './js/listen.js', './js/gdrive.js',
+  './js/views/entreprises.js', './js/views/settings.js', './js/views/photo.js', './js/views/rdv.js', './js/listen.js', './js/gdrive.js', './js/sketchbook.js',
   './vendor/pdf.min.js', './vendor/pdf.worker.min.js', './vendor/pdf-lib.min.js', './vendor/fontkit.umd.min.js', './vendor/perfect-freehand.js',
   './assets/fonts/jost-var.woff2', './assets/fonts/eb-garamond-var-italic.woff2', './assets/fonts/jost-latin-300-normal.woff',
   './assets/fonts/jost-latin-400-normal.woff2', './assets/fonts/jost-latin-500-normal.woff2', './assets/fonts/jost-latin-600-normal.woff2',

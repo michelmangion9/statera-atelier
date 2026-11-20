@@ -112,15 +112,16 @@ export function drawStrokes(ctx, strokes, k) {
 
 // Surface de dessin autonome (croquis de note, photo annotée)
 // el : conteneur positionné ; aspect : hauteur / largeur
-export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getPen, finger = () => true, styleFor = strokeStyle }) {
+export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getPen, finger = () => true, styleFor = strokeStyle, visible = () => true, layer = () => undefined }) {
   const H = 1000 * aspect;
   const svg = h('svg', { viewBox: `0 0 1000 ${H}`, preserveAspectRatio: 'none' });
   el.appendChild(svg);
   let list = strokes.slice();
   let cur = null, penSeen = false, shp = null;
   const undoStack = [];
+  const shown = () => list.filter(visible);
   const tolUnits = () => { const r = svg.getBoundingClientRect(); return r.width ? (6 / r.width) * 1000 : 6; };
-  renderStrokes(svg, list);
+  renderStrokes(svg, shown());
 
   const toUnits = (e) => {
     const r = svg.getBoundingClientRect();
@@ -159,6 +160,7 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
     if (!cur) return;
     if (shp) shp.end();
     const s = { id: cur.id, pen: cur.pen, color: cur.color, size: cur.size, pts: cur.pts.map((p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10, Math.round(p[2] * 100) / 100]), pressure: cur.pressure, shape: cur.shape };
+    const ly = layer(); if (ly) s.layer = ly;
     cur = null;
     if (s.pts.length > 1 || s.pen) { list.push(s); undoStack.push({ add: s.id }); onChange && onChange(list); }
   };
@@ -167,11 +169,11 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
 
   function eraseAt(e) {
     const [x, y] = toUnits(e);
-    const s = hitStroke(list, x, y, tolUnits() * 2.5);
+    const s = hitStroke(shown(), x, y, tolUnits() * 2.5);
     if (s) {
       list = list.filter((q) => q !== s);
       undoStack.push({ del: s });
-      renderStrokes(svg, list); onChange && onChange(list);
+      renderStrokes(svg, shown()); onChange && onChange(list);
     }
   }
   return {
@@ -181,9 +183,11 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
       const u = undoStack.pop(); if (!u) return;
       if (u.add) list = list.filter((x) => x.id !== u.add);
       if (u.del) list.push(u.del);
-      renderStrokes(svg, list); onChange && onChange(list);
+      renderStrokes(svg, shown()); onChange && onChange(list);
     },
-    clear() { undoStack.push(...list.map((s) => ({ del: s }))); list = []; renderStrokes(svg, list); onChange && onChange(list); }
+    refresh() { renderStrokes(svg, shown()); },
+    // Effacer : seulement les traits visibles (calques masqués conservés)
+    clear() { const gone = shown(); undoStack.push(...gone.map((s) => ({ del: s }))); list = list.filter((s) => !gone.includes(s)); renderStrokes(svg, shown()); onChange && onChange(list); }
   };
 }
 
