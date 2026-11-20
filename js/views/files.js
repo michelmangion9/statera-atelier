@@ -2,7 +2,7 @@
 // Mon Drive › 2026 › 2026-006_ORTOLI_OLMICCIA › 02_ESQ › 01_Entrant | 02_Travail | 03_Emis | 04_Valide
 import { h, put, clear, icon, uid, sheet, toast, pickFiles, fmtShort, fmtSize, confirmBox, shareOrDownload, todayISO, blobURL } from '../lib.js';
 import { db } from '../db.js';
-import { FOLDERS, SUBFOLDERS, DOC_TYPES, PHASES, phase, fileName, fileCode, normFolder, driveFolderName } from '../data.js';
+import { FOLDERS, folderOf, destFor, DOC_TYPES, PHASES, phase, fileName, fileCode, normFolder, driveFolderName } from '../data.js';
 import * as gd from '../gdrive.js';
 
 const SOURCE = { note: 'CR de rendez-vous', reunion: 'CR de chantier', validation: 'Validation signée', plan: 'Plan annoté', rapport: 'Rapport de réserves', import: null };
@@ -31,7 +31,8 @@ function localView(body, { project: p, files, params }, seg) {
     clear(listBox);
     const f = FOLDERS.find((x) => x.id === folder) || FOLDERS[0];
     let list = files.filter((x) => x.folder === folder);
-    if (f.phase && sub !== 'tous') list = list.filter((x) => (x.sub || '02_Travail') === sub);
+    const defSub = (x) => x.sub || f.subs[0] || '';
+    if (f.subs.length && sub !== 'tous') list = list.filter((x) => defSub(x) === sub);
     list.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
     put(listBox,
       h('div', { class: 'flexb mb' },
@@ -42,17 +43,17 @@ function localView(body, { project: p, files, params }, seg) {
         h('div', { class: 'actions' },
           h('button', { class: 'btn', onclick: () => importFiles(true) }, icon('camera', 18), 'Photo'),
           h('button', { class: 'btn btn-primary', onclick: () => importFiles(false) }, icon('plus', 18), 'Ajouter'))),
-      f.phase ? h('div', { class: 'chips mb', role: 'group', 'aria-label': 'Sous-dossier' },
-        [{ id: 'tous', nom: 'Tout' }, ...SUBFOLDERS].map((s) => h('button', {
+      f.subs.length ? h('div', { class: 'chips mb', role: 'group', 'aria-label': 'Sous-dossier' },
+        [{ id: 'tous', nom: 'Tout' }, ...f.subs.map((id) => ({ id }))].map((s) => h('button', {
           class: 'chip', 'aria-pressed': String(sub === s.id),
           onclick: () => { sub = s.id; draw(); }
-        }, s.id === 'tous' ? 'Tout' : s.id, h('span', { class: 'muted small' }, String(files.filter((x) => x.folder === folder && (s.id === 'tous' || (x.sub || '02_Travail') === s.id)).length))))) : null,
+        }, s.id === 'tous' ? 'Tout' : s.id, h('span', { class: 'muted small' }, String(files.filter((x) => x.folder === folder && (s.id === 'tous' || defSub(x) === s.id)).length))))) : null,
       !list.length ? h('div', { class: 'empty' }, 'Dossier vide. Les comptes rendus, rapports, validations et plans exportés depuis l’application s’y rangent automatiquement (03_Emis, 04_Valide).')
         : h('div', { class: 'list' }, list.map((x) => h('div', { class: 'row' },
           h('span', { style: { flexShrink: 0, color: '#57544F' } }, icon(x.mime && x.mime.startsWith('image/') ? 'camera' : 'file', 22)),
           h('button', { class: 'row-main', style: { background: 'none', border: 0, padding: 0, textAlign: 'left' }, onclick: () => openFile(x) },
             h('span', { class: 'row-t fname' }, x.name),
-            h('span', { class: 'row-s' }, [f.phase ? (x.sub || '02_Travail') : null, fmtShort(x.createdAt), fmtSize(x.size || 0), SOURCE[x.source]].filter(Boolean).join(' · '))),
+            h('span', { class: 'row-s' }, [x.sub || null, fmtShort(x.createdAt), fmtSize(x.size || 0), SOURCE[x.source]].filter(Boolean).join(' · '))),
           h('button', { class: 'btn btn-sm btn-ghost btn-icon', 'aria-label': 'Partager', onclick: () => shareOrDownload(x.blob, x.name) }, icon('share', 18)),
           h('button', { class: 'btn btn-sm btn-line', onclick: () => edit(x) }, 'Gérer')))));
   };
@@ -63,7 +64,7 @@ function localView(body, { project: p, files, params }, seg) {
     const f = FOLDERS.find((x) => x.id === folder);
     for (const file of picked) {
       let blob; try { blob = new Blob([await file.arrayBuffer()], { type: file.type || 'application/octet-stream' }); } catch (e) { toast('Fichier inaccessible : ' + file.name); continue; }
-      const rec = { id: uid(), projectId: p.id, folder, sub: f && f.phase ? (sub !== 'tous' ? sub : (camera ? '02_Travail' : '01_Entrant')) : undefined, name: file.name, mime: blob.type, size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'import' };
+      const rec = { id: uid(), projectId: p.id, folder, sub: sub !== 'tous' ? sub : (f.subs.includes(camera ? '02_Travail' : '01_Entrant') ? (camera ? '02_Travail' : '01_Entrant') : (f.subs[0] || '')), name: file.name, mime: blob.type, size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'import' };
       if (camera) rec.name = fileName({ date: todayISO(), code: fileCode(p), phase: p.phase, type: 'PHO', objet: 'Photo ' + new Date().toTimeString().slice(0, 5).replace(':', 'h'), ind: 'A', ext: 'jpg' });
       try { await db.put('files', rec); files.push(rec); } catch (e) { toast((e && e.message) || 'Enregistrement impossible'); }
     }
@@ -89,7 +90,7 @@ function localView(body, { project: p, files, params }, seg) {
       objet: h('input', { class: 'input', value: conv ? parts.slice(4, -1).join('_') : x.name.replace(/\.[^.]+$/, '') }),
       ind: h('input', { class: 'input', value: conv ? parts[parts.length - 1] : 'A', maxlength: '3' }),
       folder: h('select', { class: 'select' }, FOLDERS.map((fo) => h('option', { value: fo.id, selected: fo.id === x.folder || null }, fo.id))),
-      sub: h('select', { class: 'select' }, SUBFOLDERS.map((s) => h('option', { value: s.id, selected: s.id === (x.sub || '02_Travail') || null }, s.id))),
+      sub: h('select', { class: 'select' }, [h('option', { value: '' }, '(racine)')].concat(Array.from(new Set(FOLDERS.flatMap((fo) => fo.subs))).map((sid) => h('option', { value: sid, selected: sid === x.sub || null }, sid)))),
       name: h('input', { class: 'input fname', value: x.name })
     };
     const recompute = () => { f.name.value = fileName({ date: f.date.value, code: fileCode(p), phase: f.phase.value, type: f.type.value, objet: f.objet.value, ind: f.ind.value, ext }); };
@@ -111,7 +112,7 @@ function localView(body, { project: p, files, params }, seg) {
           if (c.length) { s.close(); location.hash = '#/p/' + p.id + '/plans/' + c[0].id; }
         } }, icon('plan', 18), 'Ouvrir comme plan annotable') : null],
       foot: [
-        h('button', { class: 'btn btn-line', onclick: async () => { if (await confirmBox('Supprimer « ' + x.name + ' » ?', 'Supprimer')) { await db.del('files', x.id); files.splice(files.indexOf(x), 1); s.close(); draw(); } } }, icon('trash', 16), 'Supprimer'),
+        h('button', { class: 'btn btn-line', onclick: async () => { if (await confirmBox('Retirer « ' + x.name + ' » de cet appareil ? Le fichier du Drive n’est jamais touché.', 'Retirer de l’appareil')) { await db.del('files', x.id); files.splice(files.indexOf(x), 1); s.close(); draw(); } } }, icon('trash', 16), 'Retirer de l’appareil'),
         h('button', { class: 'btn btn-primary', onclick: async () => { x.name = f.name.value.trim() || x.name; x.folder = f.folder.value; x.sub = f.sub.value; x.phase = f.phase.value; await db.put('files', x); s.close(); toast('Fichier enregistré'); draw(); } }, 'Enregistrer')]
     });
   }
@@ -141,7 +142,7 @@ function driveView(body, p, seg) {
       try { const file = await gd.download(f); const { importPlanBlobs } = await import('./plans.js'); const c = await importPlanBlobs(p, [file]); if (c.length) { c[0].driveId = f.id; await db.put('plans', c[0]); location.hash = '#/p/' + p.id + '/plans/' + c[0].id; } } catch (e) { toast(e.message); }
     } }, icon('plan', 16), 'Plan') : null,
     h('button', { class: 'btn btn-sm btn-ghost btn-icon', 'aria-label': 'Garder une copie sur l’appareil', title: 'Copie hors ligne', onclick: async () => {
-      try { const file = await gd.download(f); const blob = new Blob([await file.arrayBuffer()], { type: file.type }); await db.put('files', { id: uid(), projectId: p.id, folder: '01_DONNEES_ENTREE', name: file.name, mime: blob.type, size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'drive', driveId: f.id }); toast('Copie gardée sur l’appareil'); } catch (e) { toast(e.message); }
+      try { const file = await gd.download(f); const blob = new Blob([await file.arrayBuffer()], { type: file.type }); await db.put('files', { id: uid(), projectId: p.id, ...destFor('entrant', p), name: file.name, mime: blob.type, size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'drive', driveId: f.id }); toast('Copie gardée sur l’appareil'); } catch (e) { toast(e.message); }
     } }, icon('download', 18))) });
   put(body,
     h('div', { class: 'flexb mb' },

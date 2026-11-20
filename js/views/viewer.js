@@ -2,7 +2,7 @@
 // points numérotés rattachés à un lot et à l'entreprise du chantier, photos annotées.
 import { h, put, clear, icon, uid, debounce, toast, clamp, fmtShort, todayISO, confirmBox, promptBox, shareOrDownload } from '../lib.js';
 import { db } from '../db.js';
-import { LOTS, lot as lotOf, POINT_STATUS, POINT_NATURE, phase, fileName, fileCode } from '../data.js';
+import { LOTS, lot as lotOf, POINT_STATUS, POINT_NATURE, phase, fileName, fileCode, destFor } from '../data.js';
 import { renderPlan } from '../pdfkit.js';
 import { strokeEl, strokePath, renderStrokes, penPicker, strokeStyle, shaper, nearEnd } from '../ink.js';
 import { addPhotos, photoThumb, openPhotoEditor } from './photo.js';
@@ -423,9 +423,9 @@ export async function renderViewer(view, params) {
     const { exportAnnotatedPlan } = await import('../pdfkit.js');
     const blob = await exportAnnotatedPlan({ plan, pages: pagesMap, points: points.filter((x) => x.planId === plan.id) });
     const ph = phase(plan.phase || p.phase);
-    const name = fileName({ date: todayISO(), code: fileCode(p), phase: ph.id, type: 'PLA', objet: plan.nom + ' annote', ind: plan.indice || 'A', ext: 'pdf' });
-    await db.put('files', { id: uid(), projectId: p.id, folder: ph.dossier, name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'plan', sub: '03_Emis' });
-    toast('Rangé dans ' + ph.dossier);
+    const name = fileName({ date: todayISO(), code: fileCode(p), phase: ph.id, type: 'PLN', objet: plan.nom + ' annote', ind: plan.indice || 'A', ext: 'pdf' });
+    await db.put('files', { id: uid(), projectId: p.id, ...destFor('emis', p, ph.id), name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'plan' });
+    { const d = destFor('emis', p, ph.id); toast('Rangé dans ' + d.folder + ' › ' + d.sub); }
     await shareOrDownload(blob, name, plan.nom + ' · ' + p.nom);
   }
 

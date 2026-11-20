@@ -1,7 +1,7 @@
 // Projet : en-tête, phases, onglets et synthèse
 import { h, put, clear, icon, debounce, toast, fmtDate, fmtShort, daysUntil, fmtEuro, confirmBox, sheet, todayISO, nowTime, uid } from '../lib.js';
 import { db, deleteProject } from '../db.js';
-import { PHASES, phase, FOLDERS, fileName, fileCode, driveFolderName } from '../data.js';
+import { PHASES, phase, FOLDERS, fileName, fileCode, driveFolderName, destFor } from '../data.js';
 import { PROJECT_TYPES } from './projects.js';
 
 export const TABS = [
@@ -197,8 +197,8 @@ async function validate(p) {
     toast('Génération du PDF…');
     const { buildValidationPDF } = await import('../pdfkit.js');
     const blob = await buildValidationPDF({ project: p, v, getSetting: db.setting });
-    const name = fileName({ date: v.date, code: fileCode(p), phase: ph.id, type: 'VAL', objet: 'Validation ' + ph.court, ind: 'A', ext: 'pdf' });
-    await db.put('files', { id: uid(), projectId: p.id, folder: '00_ADMIN', name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'validation', sub: '04_Valide' });
+    const name = fileName({ date: v.date, code: fileCode(p), phase: ph.id, type: 'PV', objet: 'Validation ' + ph.court, ind: 'A', ext: 'pdf' });
+    await db.put('files', { id: uid(), projectId: p.id, ...destFor('validation', p, ph.id), name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'validation' });
     p.validations = (p.validations || []).concat([{ ...v, signature: undefined, file: name }]);
     const idx = PHASES.findIndex((x) => x.id === ph.id);
     if (idx >= 0 && idx < PHASES.length - 2) p.phase = PHASES[idx + 1].id;

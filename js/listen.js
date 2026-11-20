@@ -2,7 +2,7 @@
 // copie de sécurité audio, puis résumé par Gemini (compte Google de l'agence) et retour structuré en note.
 import { h, put, clear, icon, toast, uid, todayISO, nowTime, fmtDate } from './lib.js';
 import { db } from './db.js';
-import { phase, fileName, fileCode } from './data.js';
+import { phase, fileName, fileCode, destFor } from './data.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -72,8 +72,8 @@ export function listenCard(p, { onNote } = {}) {
         const type = media.mimeType || 'audio/mp4'; const ext = /mp4|aac/.test(type) ? 'm4a' : 'webm';
         const blob = new Blob(chunks, { type });
         const name = fileName({ date: todayISO(), code: fileCode(p), phase: p.phase, type: 'CR', objet: 'Audio-RDV-' + nowTime().replace(':', 'h'), ind: 'A', ext });
-        await db.put('files', { id: uid(), projectId: p.id, folder: phase(p.phase).dossier, sub: '02_Travail', name, mime: type, size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'import' });
-        toast('Audio enregistré dans ' + phase(p.phase).dossier + ' › 02_Travail');
+        await db.put('files', { id: uid(), projectId: p.id, ...destFor('travail', p), name, mime: type, size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'import' });
+        { const d = destFor('travail', p); toast('Audio enregistré dans ' + d.folder + ' › ' + d.sub); }
       };
       media.start(10000);
     } catch (e) { toast('Micro refusé : autorise le micro pour l’Atelier'); return; }

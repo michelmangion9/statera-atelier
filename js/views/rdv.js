@@ -2,7 +2,7 @@
 // raccourcis Google (Drive, Agenda, Maps, Gmail, Meet). Aucun compte Google n'est requis : ce sont des liens.
 import { h, put, clear, icon, debounce, toast, fmtDate, fmtShort, fmtEuro, todayISO, blobURL, shareOrDownload } from '../lib.js';
 import { db } from '../db.js';
-import { PHASES, phase, fileName, fileCode } from '../data.js';
+import { PHASES, phase, fileName, fileCode, destFor } from '../data.js';
 import { logoSVG as brandLogo } from '../brand.js';
 import { listenCard } from '../listen.js';
 
@@ -66,7 +66,7 @@ export async function render(view, { project: p }) {
     const blob = await buildRdvPDF({ project: p, decisions, todos, plans, getSetting: db.setting });
     const name = fileName({ date: todayISO(), code: fileCode(p), phase: p.phase, type: 'CR', objet: 'Fiche-RDV', ind: 'A', ext: 'pdf' });
     const { uid } = await import('../lib.js');
-    await db.put('files', { id: uid(), projectId: p.id, folder: ph.dossier, sub: '02_Travail', name, mime: 'application/pdf', size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'note' });
+    await db.put('files', { id: uid(), projectId: p.id, ...destFor('travail', p), name, mime: 'application/pdf', size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'note' });
     shareOrDownload(blob, name);
   }
 

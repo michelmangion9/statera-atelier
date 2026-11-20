@@ -78,24 +78,45 @@ export const AGENDAS = {
 };
 
 // Arborescence du dossier projet dans le Drive (Mon Drive › 2026 › 2026-006_ORTOLI_OLMICCIA)
+// Arborescence du dossier type « BASES FICHIER › AAAA-NNN_CLIENT_COMMUNE » du Drive
+const STD = ['01_Entrant', '02_Travail', '03_Emis', '04_Valide'];
 export const FOLDERS = [
-  { id: '00_ADMIN', nom: 'Administratif', desc: 'Convention, validations signées, courriers' },
-  { id: '01_DONNEES_ENTREE', nom: 'Données d\u2019entrée', desc: 'Programme client, foncier et urbanisme, relevés, photos du site' },
-  { id: '02_ESQ', nom: 'Esquisse', phase: true },
-  { id: '03_APS', nom: 'APS', phase: true },
-  { id: '04_APD', nom: 'APD', phase: true },
-  { id: '05_AUTORISATIONS', nom: 'Autorisations', phase: true },
-  { id: '06_PRO', nom: 'PRO', phase: true },
-  { id: '07_DCE', nom: 'DCE', phase: true },
-  { id: '08_ACT', nom: 'ACT', phase: true },
-  { id: '09_CHANTIER_DET', nom: 'Chantier', phase: true },
-  { id: '10_RECEPTION_AOR', nom: 'Réception', phase: true },
-  { id: '11_COMMUNICATION', nom: 'Communication', desc: 'Images, publications' },
-  { id: '99_ARCHIVES', nom: 'Archives', desc: 'Versions remplacées' }
+  { id: '00_ADMIN', nom: 'Administratif', code: 'ADM', subs: ['01_Contrat', '02_Facturation', '03_Assurances', '04_Contacts', '05_Courriers'] },
+  { id: '01_DONNEES_ENTREE', nom: 'Données d\u2019entrée', code: 'DE', subs: ['01_Programme_Client', '02_Foncier_Urbanisme', '03_Releves_Existant', '04_Diagnostics_Etudes', '05_Photos_Site'] },
+  { id: '02_ESQ', nom: 'Esquisse', code: 'ESQ', phase: true, subs: STD },
+  { id: '03_APS', nom: 'APS', code: 'APS', phase: true, subs: STD },
+  { id: '04_APD', nom: 'APD', code: 'APD', phase: true, subs: STD },
+  { id: '05_AUTORISATIONS', nom: 'Autorisations', code: 'AUT', phase: true, subs: ['01_Dossier_Travail', '02_Dossier_Depose', '03_Instruction_Pieces_Compl', '04_Arrete_Decision', '05_Affichage_Recours', '06_DOC_DAACT'] },
+  { id: '06_PRO', nom: 'PRO', code: 'PRO', phase: true, subs: STD },
+  { id: '07_DCE', nom: 'DCE', code: 'DCE', phase: true, subs: ['01_Pieces_Ecrites', '02_Pieces_Graphiques', '03_Envoi_Entreprises', '04_Questions_Reponses'] },
+  { id: '08_ACT', nom: 'ACT', code: 'ACT', phase: true, subs: ['01_Offres_Recues', '02_Analyse', '03_Negociation', '04_Marches_Signes'] },
+  { id: '09_CHANTIER_DET', nom: 'Chantier', code: 'DET', phase: true, subs: ['01_OS_Ordres_Service', '02_CR_Reunions', '03_Visa_Plans_Execution', '04_Situations_Paiements', '05_Avenants_TS', '06_Photos_Chantier', '07_Courriers_Entreprises', '08_Planning'] },
+  { id: '10_RECEPTION_AOR', nom: 'Réception', code: 'AOR', phase: true, subs: ['01_OPR', '02_PV_Reception', '03_Levee_Reserves', '04_DOE', '05_DIUO', '06_Decompte_Final', '07_Garanties'] },
+  { id: '11_COMMUNICATION', nom: 'Communication', code: 'COM', subs: ['01_Photos_Pro', '02_Plans_Publication', '03_Textes_Site'] },
+  { id: '99_ARCHIVES', nom: 'Archives', code: 'ARC', subs: [] }
 ];
-export const SUBFOLDERS = [
-  { id: '01_Entrant', nom: 'Entrant' }, { id: '02_Travail', nom: 'Travail' }, { id: '03_Emis', nom: 'Émis' }, { id: '04_Valide', nom: 'Validé' }
-];
+export const folderOf = (id) => FOLDERS.find((f) => f.id === id) || FOLDERS[0];
+export const SUBFOLDERS = STD.map((id) => ({ id, nom: id.slice(3) }));
+// Code PHASE du nommage (LISEZMOI) : ADM · DE · ESQ · APS · APD · AUT · PRO · DCE · ACT · DET · AOR · COM
+export const phaseCode = (id) => ({ FAI: 'DE', PC: 'AUT', CLOS: 'AOR' }[id] || id);
+// Où ranger chaque document produit par l'Atelier
+export function destFor(kind, p, phaseId) {
+  const ph = phase(phaseId || (p && p.phase));
+  const f = folderOf(ph.dossier);
+  const has = (sub) => f.subs.includes(sub);
+  switch (kind) {
+    case 'cr-chantier': return { folder: '09_CHANTIER_DET', sub: '02_CR_Reunions' };
+    case 'opr': return { folder: '10_RECEPTION_AOR', sub: '01_OPR' };
+    case 'pv-reception': return { folder: '10_RECEPTION_AOR', sub: '02_PV_Reception' };
+    case 'levee': return { folder: '10_RECEPTION_AOR', sub: '03_Levee_Reserves' };
+    case 'photo-chantier': return { folder: '09_CHANTIER_DET', sub: '06_Photos_Chantier' };
+    case 'validation': return has('04_Valide') ? { folder: f.id, sub: '04_Valide' } : { folder: '00_ADMIN', sub: '01_Contrat' };
+    case 'emis': return has('03_Emis') ? { folder: f.id, sub: '03_Emis' } : f.id === '09_CHANTIER_DET' ? { folder: f.id, sub: '07_Courriers_Entreprises' } : { folder: '00_ADMIN', sub: '05_Courriers' };
+    case 'travail': return has('02_Travail') ? { folder: f.id, sub: '02_Travail' } : f.subs[0] ? { folder: f.id, sub: f.subs[0] } : { folder: '00_ADMIN', sub: '04_Contacts' };
+    case 'entrant': return has('01_Entrant') ? { folder: f.id, sub: '01_Entrant' } : f.subs[0] ? { folder: f.id, sub: f.subs[0] } : { folder: '01_DONNEES_ENTREE', sub: '01_Programme_Client' };
+    default: return { folder: f.id, sub: f.subs[0] || '' };
+  }
+}
 // Anciens dossiers de la V1 → arborescence du Drive
 const FOLDER_MAP = { '01_ESQ': '02_ESQ', '02_APS': '03_APS', '03_APD': '04_APD', '04_PC': '05_AUTORISATIONS', '05_DCE': '07_DCE', '06_CHANTIER': '09_CHANTIER_DET', '07_PHOTOS': '01_DONNEES_ENTREE', '08_RECUS': '01_DONNEES_ENTREE' };
 export const normFolder = (f) => FOLDER_MAP[f] || f;
@@ -106,12 +127,16 @@ export function fileCode(p) {
   return (p && (p.abbr || p.code) || 'XXXXX').replace(/-/g, '');
 }
 export function driveFolderName(p) {
-  return p.driveFolder || ((p.code || 'AAAA-NNN') + '_' + (slug(p.nom || 'PROJET').replace(/-/g, '_').toUpperCase()));
+  if (p.drive && p.drive.name) return p.drive.name;
+  const up = (t) => slug(t || '').replace(/-/g, '_').toUpperCase();
+  const client = up(String(p.client || '').replace(/^(m\.|mme|mr|monsieur|madame|sci|sarl|sas)\s+/i, '').split(/\s+/).slice(-1)[0] || p.nom);
+  return p.driveFolder || ((p.code || 'AAAA-NNN') + '_' + (client || 'CLIENT') + '_' + (up(p.commune) || 'COMMUNE'));
 }
 
 export const DOC_TYPES = [
-  ['PLN', 'Plan'], ['CR', 'Compte rendu'], ['NOT', 'Notice'], ['EST', 'Estimation'], ['PHO', 'Photos'],
-  ['COU', 'Courrier'], ['VAL', 'Validation'], ['PV', 'Procès-verbal'], ['CCT', 'CCTP'], ['DIV', 'Divers']
+  ['PLN', 'Plan'], ['CPE', 'Coupe'], ['FAC', 'Façade'], ['INS', 'Insertion / 3D'], ['NOT', 'Notice'], ['CR', 'Compte rendu'],
+  ['CRT', 'Courrier'], ['DEV', 'Devis'], ['FAC-H', 'Facture d\u2019honoraires'], ['CCTP', 'CCTP'], ['DPGF', 'DPGF'], ['PV', 'Procès-verbal'],
+  ['PHO', 'Photo'], ['TAB', 'Tableau']
 ];
 
 export const POINT_STATUS = [
@@ -130,7 +155,7 @@ export const status = (id) => POINT_STATUS.find((s) => s.id === id) || POINT_STA
 import { yymmdd, slug } from './lib.js';
 export function fileName({ date, code, phase: ph, type, objet, ind, ext }) {
   const obj = (slug(objet || 'Document') || 'Document').replace(/-/g, '_').toUpperCase();
-  const parts = [yymmdd(date), String(code || 'XXXXX').replace(/-/g, '').toUpperCase(), ph || 'ESQ', type || 'DIV', obj, (ind || 'A').toUpperCase()];
+  const parts = [yymmdd(date), String(code || 'XXXXX').replace(/-/g, '').toUpperCase(), phaseCode(ph || 'ESQ'), type || 'NOT', obj, (ind || 'A').toUpperCase()];
   return parts.join('_') + (ext ? '.' + ext.replace(/^\./, '') : '');
 }
 

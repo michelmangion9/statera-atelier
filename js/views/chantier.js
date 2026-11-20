@@ -1,7 +1,7 @@
 // Chantier : entreprises affectées par lot, réunions, CR par lot envoyés à chaque entreprise
 import { h, put, clear, icon, uid, sheet, toast, fmtDate, fmtShort, daysUntil, todayISO, nowTime, confirmBox, shareOrDownload, downloadBlob, debounce } from '../lib.js';
 import { db } from '../db.js';
-import { LOTS, lot as lotOf, fileName, fileCode, VISIT_TYPES, visitType } from '../data.js';
+import { LOTS, lot as lotOf, fileName, fileCode, VISIT_TYPES, visitType, destFor } from '../data.js';
 import { editEntreprise, decStatus } from './entreprises.js';
 
 export async function render(body, ctx) {
@@ -154,10 +154,11 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
       const vt = visitType(r.type); const rec = vt.id === 'reception' || vt.id === 'levee' || vt.id === 'opr';
       const name = fileName({ date: r.date, code: fileCode(p), phase: rec ? 'AOR' : 'DET', type: vt.id === 'reception' ? 'PV' : 'CR', objet: vt.obj + '-' + String(r.num).padStart(2, '0') + (k === 'moa' ? '' : '-Lot' + k), ind: 'A', ext: 'pdf' });
       const old = existing.find((f) => f.name === name);
-      await db.put('files', { id: old ? old.id : uid(), projectId: p.id, folder: rec ? '10_RECEPTION_AOR' : '09_CHANTIER_DET', name, mime: 'application/pdf', size: blob.size, blob, phase: rec ? 'AOR' : 'DET', reunionId: r.id, createdAt: new Date().toISOString(), source: 'reunion', sub: '03_Emis' });
+      const dst = destFor({ chantier: 'cr-chantier', opr: 'opr', reception: 'pv-reception', levee: 'levee' }[vt.id] || 'cr-chantier', p);
+      await db.put('files', { id: old ? old.id : uid(), projectId: p.id, folder: dst.folder, sub: dst.sub, name, mime: 'application/pdf', size: blob.size, blob, phase: rec ? 'AOR' : 'DET', reunionId: r.id, createdAt: new Date().toISOString(), source: 'reunion' });
       results[k] = { blob, name };
     }
-    toast('Documents rangés dans ' + (['reception', 'levee', 'opr'].includes(r.type) ? '10_RECEPTION_AOR' : '09_CHANTIER_DET') + ' › 03_Emis');
+    { const d = destFor({ chantier: 'cr-chantier', opr: 'opr', reception: 'pv-reception', levee: 'levee' }[visitType(r.type).id] || 'cr-chantier', p); toast('Documents rangés dans ' + d.folder + ' › ' + d.sub); }
     drawDiff();
   }
 

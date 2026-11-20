@@ -2,7 +2,7 @@
 // dossier du projet, navigation, téléchargement, dépôt des documents générés par l'Atelier.
 import { h, put, clear, icon, toast, sheet, fmtShort, fmtSize, confirmBox } from './lib.js';
 import { db } from './db.js';
-import { FOLDERS, SUBFOLDERS, driveFolderName } from './data.js';
+import { FOLDERS, driveFolderName, folderOf, PHASES } from './data.js';
 
 export const CLIENT_ID = '801369190574-3fls5l6a0kbumk8usql1s2hsh95hs7vo.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/drive';
@@ -118,25 +118,88 @@ export async function folderFor(p, folder, sub) {
   p.drive.map = p.drive.map || {};
   const key = folder + '/' + (sub || '');
   if (p.drive.map[key]) return p.drive.map[key];
-  let id = await child(p.drive.id, folder, true);
+  let id = p.drive.map[folder + '/'] || await child(p.drive.id, folder, true);
+  p.drive.map[folder + '/'] = id;
   if (sub) id = await child(id, sub, true);
   p.drive.map[key] = id; await db.put('projects', p);
   return id;
 }
 
-// Crée l'arborescence STATERA complète dans Mon Drive › AAAA › AAAA-NNN_NOM
-export async function createProjectTree(p) {
-  const year = String(p.code || '').slice(0, 4) || String(new Date().getFullYear());
-  const yearId = await child('root', year, true);
-  const rootId = await child(yearId, driveFolderName(p), true);
-  p.drive = { id: rootId, name: driveFolderName(p), path: 'Mon Drive › ' + year + ' › ' + driveFolderName(p), map: {} };
-  for (const f of FOLDERS) {
-    const fid = await child(rootId, f.id, true);
-    p.drive.map[f.id + '/'] = fid;
-    if (f.phase) for (const s of SUBFOLDERS) p.drive.map[f.id + '/' + s.id] = await child(fid, s.id, true);
+// Dossier type : « BASES FICHIER › AAAA-NNN_CLIENT_COMMUNE » (LISEZMOI, FICHE_PROJET, JOURNAL, CHECKLIST…)
+export const TEMPLATE_NAME = 'AAAA-NNN_CLIENT_COMMUNE';
+async function templateId() {
+  const j = await api('/files?' + qs({ q: "name='" + TEMPLATE_NAME + "' and mimeType='" + FOLDER + "' and trashed=false", fields: 'files(id)', supportsAllDrives: true, includeItemsFromAllDrives: true }));
+  return j.files && j.files[0] ? j.files[0].id : null;
+}
+async function copyTree(srcId, dstId, onStep) {
+  for (const it of await list(srcId)) {
+    if (isFolder(it)) { const nid = await child(dstId, it.name, true); onStep && onStep(it.name); await copyTree(it.id, nid, onStep); }
+    else await api('/files/' + it.id + '/copy?supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: it.name, parents: [dstId] }) });
   }
+}
+// Projets STATERA présents dans le Drive : dossiers « AAAA-NNN_… »
+export async function driveProjects() {
+  const j = await api('/files?' + qs({ q: "mimeType='" + FOLDER + "' and trashed=false and name contains '-'", fields: 'files(id,name,parents,modifiedTime)', pageSize: 200, supportsAllDrives: true, includeItemsFromAllDrives: true }));
+  return (j.files || []).filter((f) => /^\d{4}-\d{3}_/.test(f.name)).sort((a, b) => b.name.localeCompare(a.name));
+}
+export function parseProjectFolder(name) {
+  const m = name.match(/^(\d{4}-\d{3})_(.+)$/); if (!m) return null;
+  const parts = m[2].split('_');
+  const cap = (t) => t.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (c) => c.toUpperCase());
+  const client = cap(parts[0] || ''), commune = cap(parts.slice(1).join(' '));
+  return { code: m[1], client, commune, nom: client + (commune ? ' · ' + commune : '') };
+}
+// N° chrono suivant de l'année (jamais réutilisé : on prend le plus grand existant + 1)
+export async function nextCode(year) {
+  const y = String(year || new Date().getFullYear());
+  const nums = (await driveProjects()).map((f) => f.name.match(/^(\d{4})-(\d{3})/)).filter((m) => m && m[1] === y).map((m) => Number(m[2]));
+  return y + '-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, '0');
+}
+async function findFile(parentId, name) {
+  const j = await api('/files?' + qs({ q: "'" + esc(parentId) + "' in parents and trashed=false and name='" + esc(name) + "'", fields: 'files(id,name,mimeType)', supportsAllDrives: true, includeItemsFromAllDrives: true }));
+  return j.files && j.files[0];
+}
+async function readText(f) { const r = await api('/files/' + f.id + '?alt=media&supportsAllDrives=true', {}, true); return r.text(); }
+const setLine = (txt, label, value) => value ? txt.replace(new RegExp('(' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*:)([^\\n·]*?)(\\s{2,}|\\s*·|\\n|$)'), (m0, a, b, c) => a + ' ' + value + (c.startsWith('\n') || !c ? c : '   ' + c.trim() + ' ')) : txt;
+// Crée le dossier du projet dans le Drive à partir du dossier type, et remplit la fiche projet
+export async function createProjectFolder(p, onStep) {
+  const year = String(p.code || '').slice(0, 4) || String(new Date().getFullYear());
+  const name = driveFolderName(Object.assign({}, p, { drive: null }));
+  const yearId = await child('root', year, true);
+  if (await findFile(yearId, name)) throw new Error('Le dossier « ' + name + ' » existe déjà dans Mon Drive › ' + year);
+  const rootId = await child(yearId, name, true);
+  const tpl = await templateId();
+  if (tpl) await copyTree(tpl, rootId, onStep);
+  else for (const f of FOLDERS) { const fid = await child(rootId, f.id, true); for (const sb of f.subs) await child(fid, sb, true); }
+  p.drive = { id: rootId, name, path: 'Mon Drive › ' + year + ' › ' + name, map: {} };
   await db.put('projects', p);
+  try { await writeFiche(p); } catch (e) { /* fiche facultative */ }
+  try { await journal(p, 'Ouverture du dossier', 'MM', ''); } catch (e) { /* journal facultatif */ }
   return p.drive;
+}
+// FICHE_PROJET.md (00_ADMIN › 04_Contacts) : remplie avec ce que l'Atelier connaît du projet
+export async function writeFiche(p) {
+  const dir = await folderFor(p, '00_ADMIN', '04_Contacts');
+  const f = await findFile(dir, 'FICHE_PROJET.md');
+  let t = f ? await readText(f) : '# FICHE PROJET\n';
+  const today = new Date().toLocaleDateString('fr-FR');
+  t = setLine(t, 'Code projet', p.code); t = setLine(t, "Date d'ouverture", p.ouverture || today);
+  t = setLine(t, 'Intitulé', p.nom); t = setLine(t, 'Adresse du terrain', p.adresse); t = setLine(t, 'Commune', p.commune);
+  t = setLine(t, 'Parcelle(s) cadastrale(s)', p.parcelle);
+  t = t.replace(/(## Maître d'ouvrage\nNom :)[^·\n]*/, (m0, a) => a + ' ' + (p.client || '') + ' ');
+  if (p.clientTel) t = t.replace(/(Tél :)\s*·/, '$1 ' + p.clientTel + ' ·');
+  if (p.clientEmail) t = t.replace(/(Mail :)\s*·/, '$1 ' + p.clientEmail + ' ·');
+  await upload(dir, new Blob([t], { type: 'text/markdown' }), 'FICHE_PROJET.md', f && f.id);
+}
+// JOURNAL_PROJET.md : une ligne par événement, la plus récente en haut
+export async function journal(p, event, who, doc) {
+  const dir = await folderFor(p, '00_ADMIN', '04_Contacts');
+  const f = await findFile(dir, 'JOURNAL_PROJET.md');
+  let t = f ? await readText(f) : '# JOURNAL PROJET (une ligne par événement, le plus récent en haut)\n| Date | Événement / décision | Qui | Doc lié |\n|------|----------------------|-----|---------|\n';
+  const line = '| ' + new Date().toLocaleDateString('fr-FR') + ' | ' + event.replace(/\|/g, '/') + ' | ' + (who || '') + ' | ' + (doc || '') + ' |';
+  const i = t.indexOf('|------'); const j = i >= 0 ? t.indexOf('\n', i) : -1;
+  t = j >= 0 ? t.slice(0, j + 1) + line + '\n' + t.slice(j + 1).replace(/^\|\s*\|\s*\|\s*\|\s*\|\n?/m, '') : t + line + '\n';
+  await upload(dir, new Blob([t], { type: 'text/markdown' }), 'JOURNAL_PROJET.md', f && f.id);
 }
 
 // Envoie au Drive un document généré par l'Atelier (CR, PV, fiche, plan annoté…)
@@ -145,13 +208,17 @@ export async function pushFile(p, rec) {
   if (!token() || !p.drive || !p.drive.id || !rec.blob || syncing.has(rec.id)) return false;
   syncing.add(rec.id);
   try {
-    const parent = await folderFor(p, rec.folder, FOLDERS.find((f) => f.id === rec.folder && f.phase) ? (rec.sub || '03_Emis') : '');
-    let existing = rec.driveId;
-    if (!existing) { // même nom déjà présent (document régénéré) : on remplace au lieu de dupliquer
-      const j = await api('/files?' + qs({ q: "'" + esc(parent) + "' in parents and trashed=false and name='" + esc(rec.name) + "'", fields: 'files(id)', supportsAllDrives: true, includeItemsFromAllDrives: true }));
-      existing = j.files && j.files[0] && j.files[0].id;
+    const parent = await folderFor(p, rec.folder, rec.sub || '');
+    // Règle : l'Atelier ne supprime ni ne déplace jamais rien dans le Drive.
+    // Si un document du même nom existe, une copie de l'ancienne version part dans 99_ARCHIVES,
+    // puis le fichier reçoit la nouvelle version (Google garde aussi l'historique des versions).
+    const prev = await findFile(parent, rec.name);
+    if (prev) {
+      const arch = await folderFor(p, '99_ARCHIVES', '');
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+      await api('/files/' + prev.id + '/copy?supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: rec.name.replace(/(\.[^.]+)$/, '_remplace' + stamp + '$1'), parents: [arch] }) });
     }
-    const r = await upload(parent, rec.blob, rec.name, existing);
+    const r = await upload(parent, rec.blob, rec.name, prev && prev.id);
     rec.driveId = r.id; rec.driveLink = r.webViewLink; rec.driveAt = new Date().toISOString();
     await db.put('files', rec);
     return true;
@@ -196,10 +263,10 @@ export async function linkProject(p) {
           p.drive = { id: f.id, name: f.name, path: f.name, map: {} }; await db.put('projects', p); res(true); s.close(); toast('Projet relié à « ' + f.name + ' »');
         } }, icon('folder', 20), h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, f.name), h('span', { class: 'row-s' }, 'modifié ' + fmtShort(f.modifiedTime))), icon('chev', 18)))) : null,
         h('button', { class: 'btn btn-line', onclick: async () => {
-          if (!await confirmBox('Créer « ' + driveFolderName(p) + ' » avec toute l’arborescence STATERA dans Mon Drive › ' + (code.slice(0, 4) || 'AAAA') + ' ?', 'Créer')) return;
-          toast('Création des dossiers…');
-          try { await createProjectTree(p); res(true); s.close(); toast('Arborescence créée dans le Drive'); } catch (e) { toast(e.message); }
-        } }, icon('plus', 18), 'Créer l’arborescence STATERA dans le Drive')],
+          if (!await confirmBox('Créer « ' + driveFolderName(p) + ' » dans Mon Drive › ' + (code.slice(0, 4) || 'AAAA') + ' à partir du dossier type ?', 'Créer')) return;
+          toast('Création du dossier à partir du dossier type…');
+          try { await createProjectFolder(p); res(true); s.close(); toast('Dossier créé dans le Drive'); } catch (e) { toast(e.message); }
+        } }, icon('plus', 18), 'Créer le dossier à partir du dossier type')],
       onClose: () => res(false)
     });
   });

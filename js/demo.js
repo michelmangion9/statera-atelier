@@ -6,6 +6,8 @@ import { planThumb } from './pdfkit.js';
 const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 
 export async function createDemo() {
+  const already = (await db.all('projects')).find((x) => x.demo || x.nom === 'Projet d’exemple');
+  if (already) return already.id;
   const ents = [
     { nom: 'Exemple Maçonnerie', lots: ['03'], contact: '[Contact]', email: 'maconnerie@exemple.fr', tel: '', decFin: addDays(200) },
     { nom: 'Exemple Menuiseries', lots: ['04', '14'], contact: '[Contact]', email: 'menuiseries@exemple.fr', tel: '', decFin: addDays(-20) },
@@ -15,7 +17,7 @@ export async function createDemo() {
   for (const e of ents) await db.put('entreprises', e);
 
   const p = {
-    id: uid(), code: new Date().getFullYear() + '-000', abbr: 'DEM', nom: 'Projet d’exemple', client: 'Client exemple', clientQualite: 'Particulier',
+    id: uid(), demo: true, code: new Date().getFullYear() + '-000', abbr: 'DEM', nom: 'Projet d’exemple', client: 'Client exemple', clientQualite: 'Particulier',
     commune: '[Commune]', adresse: '[Adresse des travaux]', type: 'Maison individuelle neuve', mission: 'Mission complète', phase: 'DET',
     urba: { doc: 'PLU', zone: '[Zone]', autorisation: 'Permis de construire', hauteur: '[7 m à l’égout]', emprise: '[30 %]' },
     prog: { sdp: 112, niveaux: 'R+1', budget: 0, texte: 'Séjour au sud, cuisine ouverte, 4 chambres dont une au rez-de-chaussée. Données fictives.' },
