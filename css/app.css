@@ -401,3 +401,5 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .drive-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
 .drive-filters input[type=search] { flex: 1 1 260px; }
 .drive-filters select { flex: 0 1 200px; }
+.chk { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 12px; border: 1px solid var(--beton); background: #fff; cursor: pointer; }
+.chk input { width: 20px; height: 20px; accent-color: #161616; }

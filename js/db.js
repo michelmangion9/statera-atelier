@@ -1,6 +1,6 @@
 // Stockage local (IndexedDB). Les fichiers (plans, photos, documents) sont gardés en Blob.
 const NAME = 'statera-atelier';
-const VERSION = 1;
+const VERSION = 2;
 const SCHEMA = {
   projects: { key: 'id' },
   notes: { key: 'id', idx: ['projectId'] },
@@ -11,7 +11,8 @@ const SCHEMA = {
   files: { key: 'id', idx: ['projectId'] },
   entreprises: { key: 'id' },
   reunions: { key: 'id', idx: ['projectId'] },
-  settings: { key: 'key' }
+  settings: { key: 'key' },
+  demandes: { key: 'id' }                          // demandes clients avant projet : questionnaire, fiche, honoraires, contrat
 };
 export const STORES = Object.keys(SCHEMA);
 

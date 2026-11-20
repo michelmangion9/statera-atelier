@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F4F3F0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="STATERA">
+<meta name="format-detection" content="telephone=no">
+
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<title>STATERA — Honoraires</title>
+<style>
+@font-face{font-family:"Jost";src:url(fonts/jost-var.woff2) format("woff2");font-weight:300 600;font-display:swap}
+@font-face{font-family:"EB Garamond";src:url(fonts/eb-garamond-var-italic.woff2) format("woff2");font-weight:400 600;font-style:italic;font-display:swap}
+:root{
+  --stone:#161616; --chaux:#F4F3F0; --enduit:#E7E5E0; --beton:#BFBDB6;
+  --ink2:#57544F; --ink3:#8C8981; --rule:#D9D6CF; --paper:#FFFFFF;
+  --serif:"Jost","Futura",-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --motto:"EB Garamond",Garamond,Georgia,serif;
+  --sans:"Jost","Futura",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+.big,.phase-amt,.sum .ht,.bar .v,h2,h3,.sheet .serif,.d-title,.d-tot,.d-phase-h,.d-head .who b,.masthead .who b{font-variant-numeric:lining-nums;font-feature-settings:"lnum" 1}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+html,body{margin:0;background:var(--chaux);color:var(--stone);font-family:var(--sans);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body{padding-top:env(safe-area-inset-top,0px)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:1.5px solid var(--stone);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 20px 140px}
+
+/* En-tête */
+.masthead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:18px;border-bottom:1px solid var(--stone)}
+.masthead svg.logo{width:min(250px,58vw);height:auto;display:block}
+.masthead .who{text-align:right;font-size:12px;color:var(--ink2);line-height:1.5}
+.masthead .who b{display:block;font-family:var(--serif);font-weight:300;font-size:18px;color:var(--stone)}
+.discreet-toggle{margin-top:6px;background:none;border:0;padding:4px 0;font-size:12px;color:var(--ink2);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:48px;margin-top:30px}
+@media (max-width:960px){.layout{grid-template-columns:minmax(0,1fr);gap:0}}
+.layout>*{min-width:0}
+
+/* Sections */
+section.block{padding:0 0 30px;margin:0 0 30px;border-bottom:1px solid var(--rule)}
+h2{font-family:var(--serif);font-weight:300;font-size:27px;line-height:1.12;margin:0 0 16px;letter-spacing:0}
+h3{font-family:var(--serif);font-weight:300;font-size:20px;margin:22px 0 10px}
+.lead{color:var(--ink2);font-size:13px;margin:-8px 0 16px;max-width:60ch}
+
+.grid{display:grid;gap:14px 18px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.span2{grid-column:span 2}.span3{grid-column:span 3}.spanall{grid-column:1/-1}
+@media (max-width:700px){.grid.g3,.grid.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.span3{grid-column:span 2}}
+@media (max-width:420px){.grid,.grid.g3{grid-template-columns:1fr}.span2,.span3{grid-column:auto}.grid.g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.f label{display:block;font-size:12px;color:var(--ink2);margin:0 0 4px}
+.f input,.f select,.f textarea{width:100%;min-height:44px;border:0;border-bottom:1px solid var(--beton);background:transparent;padding:8px 0;font-size:16px;border-radius:0;-webkit-appearance:none;appearance:none}
+.f select{background-image:linear-gradient(45deg,transparent 50%,var(--ink2) 50%),linear-gradient(135deg,var(--ink2) 50%,transparent 50%);background-position:calc(100% - 9px) 52%,calc(100% - 4px) 52%;background-size:5px 5px;background-repeat:no-repeat;padding-right:20px}
+.f textarea{min-height:76px;resize:vertical;border:1px solid var(--beton);padding:8px}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--stone);outline:none}
+.f input.big{font-family:var(--serif);font-size:26px;font-weight:300;padding:4px 0}
+.f .unit{font-size:12px;color:var(--ink3);margin-left:4px}
+.f.req input:placeholder-shown{border-bottom-color:#B9A27A}
+.hint{font-size:12px;color:var(--ink3);margin-top:4px}
+
+/* Préréglages */
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.btn{min-height:44px;padding:10px 16px;border:1px solid var(--stone);background:transparent;color:var(--stone);border-radius:0;font-size:14px;cursor:pointer;touch-action:manipulation}
+.btn.solid{background:var(--stone);color:var(--chaux)}
+.btn.ghost{border-color:var(--beton)}
+.btn.on{background:var(--stone);color:var(--chaux)}
+.btn:active{transform:translateY(1px)}
+
+/* Missions */
+.phase{margin-top:22px}
+.phase-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-bottom:1px solid var(--stone);padding-bottom:6px}
+.phase-head h3{margin:0}
+.phase-amt{font-family:var(--serif);font-size:22px;font-weight:300;white-space:nowrap}
+.phase-int{font-size:12px;color:var(--ink2);padding:6px 0 2px;min-height:18px}
+.m{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:4px 10px;align-items:start;padding:11px 0;border-bottom:1px solid var(--enduit);cursor:pointer}
+.m input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--stone);cursor:pointer}
+.m .t,.m .d{display:block}
+.m .t{font-size:15px}
+.m .t .code{font-size:11px;letter-spacing:.08em;color:var(--ink2);margin-right:6px}
+.m .d{font-size:12.5px;color:var(--ink3);margin-top:2px;line-height:1.4}
+.m .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px}
+.m .n .pr{display:block;font-size:14px;color:var(--stone)}
+.m .n small{display:block;color:var(--ink3);font-size:11.5px}
+.m:not(.sel) .n .pr{color:var(--beton)}
+.m:not(.sel) .t{color:var(--ink2)}
+.m:not(.sel) .n,.m:not(.sel) .n small{color:var(--beton)}
+.int-only{display:none!important}
+body[data-discreet="1"] .int{visibility:hidden}
+body[data-discreet="1"] .int-block,body[data-discreet="1"] .pilot{display:none}
+
+/* Accordéons */
+details.acc{border-bottom:1px solid var(--rule)}
+details.acc>summary{list-style:none;cursor:pointer;padding:18px 0;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+details.acc>summary::-webkit-details-marker{display:none}
+details.acc>summary h2{margin:0;font-size:22px}
+details.acc>summary span{font-size:12px;color:var(--ink3)}
+details.acc>summary::after{content:"+";font-family:var(--serif);font-size:26px;line-height:1;color:var(--ink2)}
+details.acc[open]>summary::after{content:"–"}
+details.acc .inner{padding:4px 0 26px}
+.checks{display:grid;gap:10px;margin-top:6px}
+.checks label{display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:13.5px;color:var(--ink2);line-height:1.45;cursor:pointer}
+.checks input{width:18px;height:18px;margin:1px 0 0;accent-color:var(--stone)}
+.note{font-size:12.5px;color:var(--ink2);border-left:2px solid var(--beton);padding:2px 0 2px 12px;margin-top:16px;line-height:1.5}
+
+/* Synthèse */
+aside .sum{position:sticky;top:20px}
+.sum .k{font-size:12px;color:var(--ink2)}
+.sum .ht{font-family:var(--serif);font-size:52px;font-weight:300;line-height:1;margin:6px 0 4px;font-variant-numeric:lining-nums;letter-spacing:-.01em}
+.sum .ht-sub{font-size:13px;color:var(--ink2)}
+.sum table{width:100%;border-collapse:collapse;margin:18px 0 8px;font-size:14px}
+.sum td{padding:8px 0;border-top:1px solid var(--rule)}
+.sum td.r{text-align:right;font-variant-numeric:tabular-nums}
+.sum .actions{display:grid;gap:8px;margin-top:18px}
+.emit{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.emit .btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding-top:12px;padding-bottom:12px;line-height:1.2;white-space:normal;text-align:center}
+.emit .btn small{font-size:10.5px;font-weight:400;letter-spacing:.02em;text-transform:none;opacity:.72}
+.bar-emit{display:flex;gap:6px}
+.int-block{margin-top:22px;padding-top:14px;border-top:1px solid var(--stone);font-size:12.5px;color:var(--ink2)}
+.int-block b{color:var(--stone);font-weight:600}
+.int-block div{display:flex;justify-content:space-between;padding:3px 0}
+.status{font-size:12.5px;margin-top:14px;line-height:1.45;color:var(--ink2)}
+.status.warn{color:#7A5A1E}
+.arb .t{font-weight:600;color:var(--stone);margin-bottom:4px}
+.arb p{margin:4px 0 10px;line-height:1.45}
+.arb .btn{width:100%;margin-top:6px;font-size:13px;min-height:42px;text-align:left;padding:9px 12px}
+.arb .btn small{display:block;font-size:11.5px;color:var(--ink2);font-weight:400}
+.arb .btn.on{background:var(--stone);color:var(--chaux)}
+.arb .btn.on small{color:var(--beton)}
+.arb .reset{background:none;border:0;padding:6px 0;margin-top:6px;font-size:12px;color:var(--ink2);text-decoration:underline;cursor:pointer}
+.int-block .alert{display:block;color:#8A3A1E;margin-top:6px}
+/* Déblocage général */
+.man .t{font-weight:600;color:var(--stone);margin-bottom:4px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.man p{margin:4px 0 10px;line-height:1.45}
+.man .btn{width:100%;margin-top:6px;font-size:13px;min-height:42px}
+.man .reset{background:none;border:0;padding:6px 0;font-size:12px;color:var(--ink2);text-decoration:underline;cursor:pointer}
+.man .sw{display:flex!important;gap:8px;align-items:center;margin:8px 0;color:var(--stone);font-size:13px;cursor:pointer}
+.man .sw input{width:18px;height:18px;accent-color:var(--stone)}
+.man .mg{display:grid;grid-template-columns:minmax(0,1fr) 64px 82px;gap:4px 8px;align-items:center;margin:4px 0}
+.man .mg.hd{font-size:11px;color:var(--ink3);margin-top:10px}
+.man .mg.ph{border-bottom:1px solid var(--stone);padding:8px 0 4px;margin-top:8px;font-weight:600;color:var(--stone)}
+.man .mg span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.man .mg small{display:block;color:var(--ink3);font-size:10.5px}
+.man input.mi{width:100%;min-height:36px;border:0;border-bottom:1px solid var(--beton);background:transparent;padding:4px 0;font-size:16px;text-align:right;border-radius:0;-webkit-appearance:none;appearance:none;font-variant-numeric:tabular-nums}
+.man input.mi:focus{outline:none;border-color:var(--stone)}
+.man input.mi::placeholder{color:var(--ink3)}
+.man .two{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:6px 0}
+.man .two>div{min-width:0;display:block}
+.man .two label{display:block;font-size:11.5px;color:var(--ink2)}
+.man .mg>*{min-width:0}
+.man input.mi{min-width:0}
+.man .tr div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 10px;padding:3px 0}
+.man .tr{display:block!important;margin-top:12px;padding-top:8px;border-top:1px solid var(--rule)}
+.man .log{font-size:11.5px;color:var(--ink3);margin-top:8px}
+.man .pin{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.man .pin .btn{width:auto}
+.err{display:none;background:#fff;border:1px solid #9b2c2c;color:#9b2c2c;padding:10px 12px;font-size:13px;margin-top:14px}
+@media (max-width:960px){aside .sum{position:static;border-top:1px solid var(--stone);padding-top:24px}}
+
+/* Barre mobile */
+.bar{display:none}
+@media (max-width:960px){
+  .bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(244,243,240,.96);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-top:1px solid var(--stone);padding:10px 18px calc(10px + var(--safe-b));align-items:center;justify-content:space-between;gap:12px}
+  .bar .v{font-family:var(--serif);font-size:28px;font-weight:300;line-height:1}
+  .bar .l{font-size:11px;color:var(--ink2)}
+}
+
+/* Import questionnaire */
+#importDlg{position:fixed;inset:0;z-index:60;background:rgba(22,22,22,.42);display:none;align-items:flex-end;justify-content:center}
+#importDlg.open{display:flex}
+.imp-box{background:var(--chaux);width:100%;max-width:520px;max-height:100%;overflow:auto;padding:20px 20px calc(24px + var(--safe-b));border-top:1px solid var(--stone)}
+@media (min-width:700px){#importDlg{align-items:center}.imp-box{border:1px solid var(--stone)}}
+.imp-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.imp-head h2{margin:0;font-size:24px}
+.imp-lead{font-size:13px;color:var(--ink2);margin:10px 0 16px}
+.imp-wide{width:100%;margin-top:8px;display:flex;align-items:center;justify-content:center;text-align:center}
+.imp-file{position:relative;overflow:hidden}
+.imp-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+#impVideoWrap{position:relative;margin-top:10px;background:#000;aspect-ratio:1/1;overflow:hidden}
+#impVideo{width:100%;height:100%;object-fit:cover;display:block}
+.imp-frame{position:absolute;inset:16%;border:2px solid rgba(244,243,240,.9)}
+.imp-msg{font-size:13px;min-height:18px;margin:12px 0 0;color:var(--ink2)}
+.imp-msg.ko{color:#8A3A1E}.imp-msg.ok{color:var(--stone)}
+#flash{position:fixed;left:50%;bottom:calc(86px + var(--safe-b));transform:translate(-50%,20px);z-index:70;background:var(--stone);color:var(--chaux);padding:12px 16px;font-size:13px;max-width:min(92vw,520px);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#flash.on{opacity:1;transform:translate(-50%,0)}
+@media (min-width:961px){#flash{bottom:28px}}
+
+/* Aperçu document */
+#preview{position:fixed;inset:0;z-index:50;background:#D9D7D2;overflow:auto;-webkit-overflow-scrolling:touch;display:none}
+#preview.open{display:block}
+.ptools{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:var(--chaux);border-bottom:1px solid var(--stone)}
+.ptools select{order:2;flex:1 1 100%;min-width:0;font:inherit;font-size:13px;padding:9px 8px;border:1px solid var(--stone);background:var(--chaux);color:var(--ink);border-radius:0}
+.ptools .msg{order:3;font-size:11.5px;line-height:1.35;color:var(--ink2);flex:1 1 100%;min-width:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ptools .btn{flex:0 0 auto;padding:10px 12px}
+@media (min-width:700px){.ptools select{order:0;flex:0 1 260px}}
+.ptools .msg.warn{color:#7A5A1E}
+#doc{padding:20px 0 60px}
+@media screen{
+  .sheet{width:210mm;min-height:297mm;margin:0 auto 18px;background:#fff;padding:16mm 17mm 14mm;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  #doc{zoom:var(--z,1)}
+}
+
+/* ====== Document client (écran + impression) ====== */
+.sheet{color:#161616;font-family:var(--sans);font-size:9pt;line-height:1.42;position:relative}
+.sheet .serif{font-family:var(--serif)}
+.d-head{display:flex;justify-content:space-between;align-items:flex-start}
+.d-head svg{width:52mm;height:auto;display:block}
+.d-head .who{text-align:right;font-size:8.5pt;color:#57544F;line-height:1.45;padding-top:1mm}
+.d-head .who b{display:block;font-family:var(--serif);font-weight:300;font-size:13pt;color:#161616}
+.d-title{margin:11mm 0 1.5mm;font-family:var(--serif);font-weight:300;font-size:25pt;line-height:1}
+.d-ref{font-size:7.5pt;color:#8C8981;letter-spacing:.02em}
+.d-parties{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6mm;margin:8mm 0 7mm;padding:4mm 0;border-top:.6pt solid #161616;border-bottom:.4pt solid #D9D6CF}
+.d-lbl{font-size:6.8pt;letter-spacing:.16em;text-transform:uppercase;color:#8C8981;margin-bottom:1.2mm}
+.d-parties div{font-size:9pt;line-height:1.4}
+.d-phase{margin:0 0 5.5mm;break-inside:avoid}
+.d-phase-h{display:flex;justify-content:space-between;align-items:baseline;border-bottom:.4pt solid #BFBDB6;padding-bottom:1.3mm;margin-bottom:2mm}
+.d-phase-h span:first-child{font-size:7.4pt;letter-spacing:.18em;text-transform:uppercase}
+.d-phase-h span:last-child{font-family:var(--serif);font-size:12.5pt;font-weight:300}
+.d-mis{display:grid;grid-template-columns:1fr;gap:0 8mm}
+.d-mis.two{grid-template-columns:1fr 1fr}
+.d-mis .mi{display:flex;justify-content:space-between;align-items:baseline;gap:5mm;padding:1.25mm 0;border-bottom:.3pt solid #E7E5E0;break-inside:avoid;line-height:1.35}
+.d-mis .mi:last-child,.d-mis.two .mi:nth-last-child(2):nth-child(odd){border-bottom:0}
+.d-mis .pr{white-space:nowrap;font-variant-numeric:tabular-nums lining-nums;font-size:8.8pt}
+.d-mis b{font-weight:600;font-size:8.8pt}
+.d-mis .c{font-size:7.4pt;letter-spacing:.06em;color:#57544F;margin-right:1.5mm;font-weight:400}
+.d-mis p{margin:.4mm 0 0;color:#57544F;font-size:8pt}
+.d-bottom{display:grid;grid-template-columns:1.15fr 1fr;gap:10mm;margin-top:7mm;padding-top:4mm;border-top:.6pt solid #161616;break-inside:avoid}
+.d-sched table,.d-tot table{width:100%;border-collapse:collapse}
+.d-sched td{padding:1.2mm 0;border-bottom:.3pt solid #E7E5E0;font-size:8pt;vertical-align:top}
+.d-sched td.r,.d-tot td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;padding-left:3mm}
+.d-tot td{padding:1.2mm 0;font-size:9pt}
+.d-tot .ht td{font-family:var(--serif);font-size:19pt;font-weight:300;padding-bottom:2mm;line-height:1.05}
+.d-tot .ht td small{display:block;font-family:var(--sans);font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:#8C8981;font-weight:400}
+.d-tot .ttc td{border-top:.6pt solid #161616;font-weight:600;padding-top:2mm}
+.d-valid{margin-top:6mm;font-size:8pt;color:#57544F}
+.d-foot{margin-top:8mm;padding-top:2.5mm;border-top:.4pt solid #D9D6CF;font-size:6.6pt;color:#8C8981;line-height:1.5;letter-spacing:.02em}
+.d-h2{font-family:var(--serif);font-weight:300;font-size:17pt;margin:0 0 1mm}
+.d-sub{font-size:7.5pt;color:#8C8981;margin-bottom:5mm}
+.d-cols{column-count:2;column-gap:8mm;font-size:7.7pt;line-height:1.42;text-align:left}
+.d-art{break-inside:avoid-column;margin:0 0 2.8mm}
+.d-art h4{font-size:7pt;letter-spacing:.14em;text-transform:uppercase;margin:0 0 .8mm;font-weight:600}
+.d-art p{margin:0 0 1mm}
+.d-art ul{margin:.6mm 0 1mm;padding-left:3.6mm}
+.d-art li{margin:.3mm 0}
+.d-box{border:.5pt solid #161616;padding:3mm 3.5mm;margin:4mm 0;font-size:7.8pt;break-inside:avoid}
+.d-box .chk{display:inline-block;width:3.2mm;height:3.2mm;border:.6pt solid #161616;vertical-align:-0.5mm;margin-right:2mm}
+#page2.spill .d-box{break-inside:avoid}
+.d-sigs{display:grid;grid-template-columns:1fr 1fr;gap:10mm;margin-top:5mm;break-inside:avoid}
+.d-sig{border-top:.6pt solid #161616;padding-top:2.5mm;font-size:8pt;line-height:1.55}
+.d-sig .lbl{font-size:7pt;letter-spacing:.16em;text-transform:uppercase;margin-bottom:1.5mm;font-weight:600}
+.d-sig .line{border-bottom:.4pt solid #8C8981;height:6.5mm}
+.d-sig .space{height:20mm;border:.4pt dashed #BFBDB6;margin-top:1.5mm;font-size:6.8pt;color:#8C8981;padding:1mm 1.5mm}
+.d-esign{font-size:6.8pt;color:#8C8981;margin-top:3mm;line-height:1.45}
+.d-form p{font-size:9pt;line-height:1.7;margin:0 0 3mm}
+.d-form .fill{display:inline-block;min-width:80mm;border-bottom:.4pt solid #8C8981}
+.blank{display:inline-block;min-width:34mm;border-bottom:.4pt solid #8C8981}
+.pb{break-before:page;page-break-before:always}
+
+
+/* densités automatiques */
+.sheet .mlong{display:none}
+.sheet .withlong .mlong,.sheet.withlong .mlong{display:inline}
+.sheet.withlong .mref{display:none}
+#page1.fit1 .d-title{margin-top:8mm}
+#page1.fit1 .d-parties{margin:5mm 0 5mm}
+#page1.fit1 .d-phase{margin-bottom:4mm}
+#page1.fit1 .d-bottom{margin-top:4mm}
+#page1.fit2 .d-mis p{display:none}
+#page1.fitcols .d-mis.one{grid-template-columns:1fr 1fr}
+#page1.fitcols .d-mis p{font-size:7.2pt;line-height:1.28;margin-top:.2mm}
+#page1.fitcols .d-mis .mi{padding:.75mm 0}
+#page1.fitcols .d-phase{margin-bottom:3.5mm}
+#page1.fitcols .d-parties{margin:4mm 0 4.5mm;padding:3mm 0}
+#page1.fitcols .d-title{margin-top:6mm}
+#page1.fitcols .d-sched td{padding:.8mm 0}
+#page1.fit2 .d-mis .mi{padding:.9mm 0}
+#page1.fit3{font-size:8.4pt}
+#page1.fit3 .d-mis b{font-size:8.2pt}
+#page1.fit3 .d-sched td{padding:.7mm 0;font-size:7.6pt}
+#page1.fit3 .d-foot{margin-top:4mm}
+#page2.fit1 .d-cols{font-size:7.25pt;line-height:1.36}
+#page2.fit1 .d-art{margin-bottom:2.2mm}
+#page2.fit2 .d-cols{font-size:6.9pt;line-height:1.32}
+#page2.fit2 .d-sig .space{height:18mm}
+#page2.fit3 .d-cols{font-size:6.8pt;line-height:1.3;column-gap:6mm}
+#page2.fit3 .d-art{margin-bottom:1.6mm}
+#page2.fit3 .d-h2{font-size:15pt}
+#page2.fit3 .d-sub{margin-bottom:3mm}
+
+/* Contrat paginé (V8) */
+.sheet.cpage{height:297mm;padding:16mm 17mm 22mm;display:flex;flex-direction:column;overflow:hidden}
+.cpage .cbody{flex:1 1 auto;min-height:0;overflow:hidden;font-size:8.6pt;line-height:1.6}
+.cpage .cfoot{position:absolute;left:17mm;right:17mm;bottom:9mm;display:flex;justify-content:space-between;gap:4mm;font-size:6.6pt;color:#8C8981;border-top:.4pt solid #D9D6CF;padding-top:2mm}
+.cpage .paraphes i{display:inline-block;width:13mm;border-bottom:.4pt solid #8C8981;margin:0 1.5mm;vertical-align:-1mm}
+.cb{margin:0 0 2.6mm}
+.cb h4{font-size:7pt;letter-spacing:.16em;text-transform:uppercase;margin:5mm 0 1.6mm;font-weight:600}
+.cb p{margin:0}
+.c-h1{font-family:var(--serif);font-weight:300;font-size:20pt;line-height:1.05}
+.c-h2{font-family:var(--serif);font-weight:300;font-size:15pt;margin:0 0 1mm}
+.c-sub{font-size:7.5pt;color:#8C8981;margin:1mm 0 4mm}
+.c-title{border-bottom:.6pt solid #161616;margin-bottom:3mm}
+.c-box{border:.5pt solid #161616;padding:3mm 3.5mm;margin:3mm 0;font-size:8pt;line-height:1.55}
+.c-box .chk{display:inline-block;width:3.2mm;height:3.2mm;border:.6pt solid #161616;vertical-align:-0.5mm;margin-right:2mm}
+.c-note{font-size:7.4pt;color:#57544F;margin-top:2mm!important}
+.c-visa{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:4mm}.c-visa div{border-top:.6pt solid #161616;padding-top:2mm;height:18mm;font-size:7.5pt}
+.c-tab{width:100%;border-collapse:collapse;margin-top:3mm;font-size:8pt}.c-tab th,.c-tab td{border:.4pt solid #BFBDB6;padding:2mm;text-align:left;vertical-align:top}.c-tab td{height:11mm}.c-tab th{font-size:6.8pt;letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+.c-a1-h{display:flex;justify-content:space-between;border-bottom:.4pt solid #BFBDB6;padding:2.5mm 0 1.2mm;font-size:7.4pt;letter-spacing:.16em;text-transform:uppercase}
+.c-a1-m{display:flex;justify-content:space-between;gap:6mm;padding:1.4mm 0;border-bottom:.3pt solid #E7E5E0}.c-a1-m p{margin:.4mm 0 0;color:#57544F;font-size:7.6pt}.c-a1-m span{white-space:nowrap;font-variant-numeric:tabular-nums}
+.c-a1-tot,.c-a1-tot2{display:flex;justify-content:space-between;padding:1.6mm 0;font-size:9pt}.c-a1-tot{font-weight:600;border-top:.6pt solid #161616;margin-top:2mm}
+.c-sigs-intro{margin:4mm 0 2mm;font-size:8pt}
+.c-sigs{display:grid;grid-template-columns:1fr 1fr;gap:10mm}
+.c-sig{border-top:.6pt solid #161616;padding-top:2.5mm;font-size:8pt;line-height:1.55}.c-sig .lbl{font-size:7pt;letter-spacing:.16em;text-transform:uppercase;margin-bottom:1.5mm;font-weight:600}
+.c-sig .space{height:24mm;border:.4pt dashed #BFBDB6;margin-top:1.5mm;font-size:6.8pt;color:#8C8981;padding:1mm 1.5mm}
+.c-sigbox{height:26mm;border:.4pt dashed #BFBDB6;margin-bottom:3mm}
+.cb .fill{display:inline-block;min-width:80mm;border-bottom:.4pt solid #8C8981}
+.c-ann p{margin:0 0 2.5mm}
+.cb h5{font-size:7.8pt;font-weight:600;margin:3mm 0 1mm;letter-spacing:.02em}
+.c-toc ol{margin:0 0 2mm;padding:0 0 0 5mm;columns:2;column-gap:10mm;font-size:7.6pt;line-height:1.55;color:#57544F}
+.c-toc{border-bottom:.4pt solid #D9D6CF;padding-bottom:2mm;margin-bottom:3mm}
+.cbx{display:inline-block;width:2.9mm;height:2.9mm;border:.6pt solid #161616;vertical-align:-.45mm;margin-right:1.6mm;position:relative;font-size:0;line-height:0;color:transparent;overflow:hidden}
+.cbx.on::after{content:"";position:absolute;left:.75mm;top:.1mm;width:.9mm;height:1.8mm;border:solid #161616;border-width:0 .55pt .55pt 0;transform:rotate(42deg)}
+.c-tab.c-miss td{height:auto;padding:1mm 2mm;border:0;border-bottom:.3pt solid #E7E5E0}.c-tab.c-miss td.b{width:5mm}.c-tab.c-miss tr.grp td{font-size:6.8pt;letter-spacing:.14em;text-transform:uppercase;padding-top:2.2mm;border-bottom:.4pt solid #BFBDB6}
+.c-tab.c-miss .code{font-size:6.8pt;letter-spacing:.08em;color:#57544F;margin-right:1mm}
+.c-tab.c-delais td,.c-tab.c-dec td{height:auto}.c-tab .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.c-tab tr.tot td{font-weight:600;border-top:.6pt solid #161616}
+/* Contrat de l’Ordre importé */
+.imp-case{display:inline-block;text-transform:lowercase}.imp-case::first-letter{text-transform:uppercase}
+.cb p.imp-lbl{margin-top:1.4mm}
+.cb.imp-s{margin-bottom:1mm}
+.c-tab.c-imp{table-layout:fixed;margin-top:0}.c-tab.c-imp td,.c-tab.c-imp th{height:auto}.c-tab.c-imp tr.grp td{font-size:6.8pt;letter-spacing:.14em;text-transform:uppercase;padding-top:2.2mm;border-bottom:.4pt solid #BFBDB6}
+.imp-title{display:flex;justify-content:space-between;align-items:flex-end;gap:8mm}
+.imp-title .imp-logo svg{width:44mm;height:auto;display:block}
+.cb h6.imp-h4{font-size:8pt;font-weight:600;margin:1.8mm 0 .4mm}
+.cb .imp-cap{text-align:center;font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:#57544F;margin:2.4mm 0 1mm}.cb .imp-cap.b{color:#161616;font-weight:600}
+.cb p.imp-chk{padding-left:5mm;text-indent:-5mm;margin:.6mm 0}
+.cb p.imp-li{padding-left:4.5mm;position:relative}.cb p.imp-li .mk{position:absolute;left:0;color:#8C8981}
+.cb p.imp-ind{padding-left:6mm}
+.cb p.imp-i{font-style:italic;color:#57544F}
+.cb p.imp-b{font-weight:500}
+.cb p.imp-fill{min-height:4mm}.cb p.imp-fill .fill{display:block;min-width:0;height:5mm}
+.c-tab.imp{table-layout:fixed;margin:0}.c-tab.imp td{height:auto;padding:1.4mm 2mm;border-top:0}.c-tab.imp tr.th td{font-size:6.8pt;letter-spacing:.08em;text-transform:uppercase;font-weight:600;border-top:.4pt solid #BFBDB6}.c-tab.imp tr.grp td{text-align:center;font-size:6.8pt;letter-spacing:.14em;text-transform:uppercase;background:#F4F3F0}
+.imp-row+.imp-row{margin-top:0}.cb.imp-row{margin:0}
+.cb.imp-row+.cb:not(.imp-row){margin-top:2.4mm}
+.cpage .c-sign .c-sig .space{height:30mm}
+.c-tab.c-delais,.c-tab.c-dec,.c-tab.c-miss{table-layout:fixed}.c-tab.c-delais td:first-child,.c-tab.c-delais th:first-child{width:46%}.c-tab.c-dec td:first-child{width:56%}.c-tab.c-miss td.b{width:6mm}
+.cb.c-trow{margin:0}.cb.c-trow .c-tab{margin-top:0}.cb.c-trow+.cb:not(.c-trow){margin-top:2mm}
+.c-manus{border:.5pt solid #161616;padding:2.5mm 3.5mm;margin:2mm 0 1mm}.c-manus .lbl{font-size:6.8pt;letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin-bottom:1mm}.c-manus .lines i{display:block;height:7mm;border-bottom:.4pt dotted #8C8981}
+.c-banner{border:1pt solid #8A3A1E;color:#8A3A1E;padding:2mm 3mm;margin:0 0 3mm;font-weight:600;font-size:8pt;letter-spacing:.08em}
+.c-banner small{display:block;font-weight:400;letter-spacing:0;margin-top:1mm;font-size:7pt}
+.sheet.nc::after{content:"PROJET NON CONFORME";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-32deg);font-size:46pt;font-weight:600;color:rgba(138,58,30,.10);white-space:nowrap;pointer-events:none}
+/* Factures */
+.inv .i-title{margin:12mm 0 1.5mm;font-family:var(--serif);font-weight:300;font-size:24pt}.inv .i-title span{font-size:13pt;color:#57544F}
+.inv .i-meta{font-size:8pt;color:#57544F}
+.inv .i-parties{display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin:8mm 0 5mm;padding:4mm 0;border-top:.6pt solid #161616;border-bottom:.4pt solid #D9D6CF;font-size:8.6pt;line-height:1.5}
+.inv .i-obj{font-size:8.4pt;margin-bottom:4mm}
+.inv table{width:100%;border-collapse:collapse}
+.inv .i-lines th{font-size:6.8pt;letter-spacing:.14em;text-transform:uppercase;text-align:left;border-bottom:.4pt solid #BFBDB6;padding:1.5mm 0}
+.inv .i-lines td{padding:2.2mm 0;border-bottom:.3pt solid #E7E5E0;font-size:9pt;vertical-align:top}.inv .i-lines small{display:block;color:#57544F;font-size:7.6pt}
+.inv .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.inv .i-tot{width:55%;margin:5mm 0 0 auto}.inv .i-tot td{padding:1.4mm 0;font-size:9pt}.inv .i-tot .ttc td{border-top:.6pt solid #161616;font-weight:600;padding-top:2mm}
+.inv .i-legal{margin-top:8mm;font-size:7.6pt;color:#57544F;line-height:1.5}.inv .i-legal p{margin:0 0 1.5mm}
+.inv-list{font-size:13px}
+.inv-list .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--enduit)}
+.inv-list .row small{display:block;color:var(--ink3)}
+.inv-list .acts{display:flex;flex-wrap:wrap;gap:6px;grid-column:1/-1}
+.inv-list .acts button{background:none;border:1px solid var(--beton);min-height:36px;padding:4px 10px;font-size:12.5px;cursor:pointer}
+.inv-list .empty{color:var(--ink3);padding:8px 0}
+.status ul{margin:4px 0 0;padding-left:18px}
+.d-mis .pr small{display:block;font-size:7pt;color:#8C8981;text-align:right}
+.d-temps{margin-top:4mm;font-size:8pt;line-height:1.45;border-left:1.2pt solid #161616;padding-left:3mm}
+body[data-discreet="1"] .private{display:none}
+@page{size:A4;margin:0}
+@media print{
+  html,body{background:#fff!important}
+  body{padding:0}
+  body>*:not(#preview){display:none!important}
+  #importDlg,#flash{display:none!important}
+  #preview{position:static!important;display:block!important;overflow:visible!important;background:#fff!important}
+  .ptools{display:none!important}
+  #doc{padding:0!important;zoom:1!important}
+  .sheet{width:210mm;height:297mm;min-height:0;margin:0;padding:16mm 17mm 14mm;box-shadow:none;overflow:hidden}
+  .sheet.cpage{padding:16mm 17mm 22mm}
+  .sheet+.sheet{break-before:page;page-break-before:always}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  .atelier-bar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 16px; padding: 10px 18px; padding-top: max(10px, env(safe-area-inset-top)); background: #161616; color: #fff; font: 15px Jost, system-ui, sans-serif; }
+  .atelier-bar a { color: #fff; text-decoration: none; font-weight: 500; }
+  .atelier-bar span { opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media print { .atelier-bar { display: none !important; } }
+</style>
+</head>
+<body data-discreet="0">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="statera-logo" viewBox="-92.0 -871 4538.4 1404"><g fill="#161616"><path d="M5.0 -513.0Q5.0 -473.0 25.0 -444.0Q45.0 -415.0 77.0 -392.5Q109.0 -370.0 145.0 -348.0Q182.0 -326.0 216.5 -301.0Q251.0 -276.0 273.5 -242.5Q296.0 -209.0 296.0 -161.0Q296.0 -112.0 270.5 -73.0Q245.0 -34.0 198.5 -11.0Q152.0 12.0 87.0 12.0Q61.0 12.0 34.5 7.5Q8.0 3.0 -16.0 -5.0Q-40.0 -13.0 -60.0 -25.0Q-64.0 -28.0 -66.5 -32.0Q-69.0 -36.0 -69.0 -44.0L-79.0 -187.0Q-80.0 -192.0 -74.5 -192.5Q-69.0 -193.0 -68.0 -189.0Q-59.0 -158.0 -44.0 -126.0Q-29.0 -94.0 -8.0 -67.5Q13.0 -41.0 42.5 -24.0Q72.0 -7.0 111.0 -7.0Q138.0 -7.0 163.5 -17.0Q189.0 -27.0 205.0 -50.5Q221.0 -74.0 221.0 -116.0Q221.0 -164.0 200.0 -197.0Q179.0 -230.0 146.0 -254.0Q113.0 -278.0 76.0 -300.0Q41.0 -322.0 8.5 -346.0Q-24.0 -370.0 -44.0 -401.5Q-64.0 -433.0 -64.0 -478.0Q-64.0 -532.0 -35.5 -567.0Q-7.0 -602.0 37.5 -619.0Q82.0 -636.0 129.0 -636.0Q160.0 -636.0 192.0 -630.0Q224.0 -624.0 250.0 -613.0Q259.0 -609.0 262.0 -604.5Q265.0 -600.0 265.0 -595.0L270.0 -470.0Q270.0 -467.0 265.0 -466.0Q260.0 -465.0 258.0 -469.0Q255.0 -486.0 245.0 -511.5Q235.0 -537.0 218.0 -561.5Q201.0 -586.0 174.5 -602.5Q148.0 -619.0 110.0 -619.0Q75.0 -619.0 52.0 -604.5Q29.0 -590.0 17.0 -566.5Q5.0 -543.0 5.0 -513.0ZM627.2 -605.0Q565.2 -605.0 530.2 -570.5Q495.2 -536.0 478.2 -460.0Q477.2 -458.0 471.7 -458.0Q466.2 -458.0 466.2 -461.0Q468.2 -474.0 470.7 -498.0Q473.2 -522.0 475.2 -550.0Q477.2 -578.0 478.7 -604.0Q480.2 -630.0 480.2 -647.0Q480.2 -652.0 486.2 -652.0Q492.2 -652.0 492.2 -647.0Q492.2 -637.0 502.2 -632.5Q512.2 -628.0 525.2 -626.5Q538.2 -625.0 547.2 -625.0Q633.2 -622.0 748.2 -622.0Q818.2 -622.0 860.2 -623.5Q902.2 -625.0 941.2 -625.0Q975.2 -625.0 993.7 -629.5Q1012.2 -634.0 1017.2 -650.0Q1018.2 -654.0 1023.7 -654.0Q1029.2 -654.0 1029.2 -650.0Q1027.2 -635.0 1025.7 -608.0Q1024.2 -581.0 1022.7 -552.0Q1021.2 -523.0 1020.2 -498.0Q1019.2 -473.0 1019.2 -461.0Q1019.2 -458.0 1013.7 -458.0Q1008.2 -458.0 1008.2 -461.0Q1001.2 -539.0 968.2 -572.0Q935.2 -605.0 870.2 -605.0Q835.2 -605.0 817.7 -600.5Q800.2 -596.0 794.7 -583.0Q789.2 -570.0 789.2 -542.0L789.2 -81.0Q789.2 -52.0 795.7 -37.0Q802.2 -22.0 821.7 -17.0Q841.2 -12.0 882.2 -12.0Q884.2 -12.0 884.2 -6.0Q884.2 0.0 882.2 0.0Q855.2 0.0 821.7 -1.0Q788.2 -2.0 748.2 -2.0Q710.2 -2.0 676.7 -1.0Q643.2 0.0 615.2 0.0Q612.2 0.0 612.2 -6.0Q612.2 -12.0 615.2 -12.0Q654.2 -12.0 674.7 -17.0Q695.2 -22.0 702.2 -37.0Q709.2 -52.0 709.2 -81.0L709.2 -544.0Q709.2 -571.0 703.2 -584.5Q697.2 -598.0 679.2 -601.5Q661.2 -605.0 627.2 -605.0ZM1281.2 -261.0L1293.2 -283.0L1565.2 -283.0L1572.2 -261.0ZM1798.2 -12.0Q1803.2 -12.0 1803.2 -6.0Q1803.2 0.0 1798.2 0.0Q1769.2 0.0 1738.7 -2.0Q1708.2 -4.0 1679.2 -4.0Q1647.2 -4.0 1623.7 -2.0Q1600.2 0.0 1571.2 0.0Q1567.2 0.0 1567.2 -6.0Q1567.2 -12.0 1571.2 -12.0Q1620.2 -12.0 1631.2 -27.5Q1642.2 -43.0 1620.2 -89.0L1405.2 -536.0L1437.2 -584.0L1242.2 -132.0Q1216.2 -71.0 1239.2 -41.5Q1262.2 -12.0 1325.2 -12.0Q1330.2 -12.0 1330.2 -6.0Q1330.2 0.0 1325.2 0.0Q1295.2 0.0 1270.2 -2.0Q1245.2 -4.0 1207.2 -4.0Q1170.2 -4.0 1147.7 -2.0Q1125.2 0.0 1093.2 0.0Q1089.2 0.0 1089.2 -6.0Q1089.2 -12.0 1093.2 -12.0Q1120.2 -12.0 1140.2 -22.5Q1160.2 -33.0 1178.7 -61.0Q1197.2 -89.0 1219.2 -141.0L1432.2 -632.0Q1433.2 -635.0 1439.2 -635.5Q1445.2 -636.0 1446.2 -632.0L1686.2 -137.0Q1710.2 -88.0 1727.7 -60.5Q1745.2 -33.0 1762.2 -22.5Q1779.2 -12.0 1798.2 -12.0ZM2669.2 -636.0Q2707.2 -636.0 2739.7 -632.5Q2772.2 -629.0 2800.7 -621.0Q2829.2 -613.0 2855.2 -600.0Q2863.2 -597.0 2864.7 -593.5Q2866.2 -590.0 2867.2 -578.0L2880.2 -452.0Q2880.2 -450.0 2874.7 -448.5Q2869.2 -447.0 2868.2 -451.0Q2843.2 -534.0 2792.2 -576.5Q2741.2 -619.0 2662.2 -619.0Q2582.2 -619.0 2522.2 -582.0Q2462.2 -545.0 2428.2 -477.5Q2394.2 -410.0 2394.2 -318.0Q2394.2 -250.0 2415.2 -193.0Q2436.2 -136.0 2473.7 -93.5Q2511.2 -51.0 2560.7 -28.0Q2610.2 -5.0 2667.2 -5.0Q2747.2 -5.0 2796.7 -45.0Q2846.2 -85.0 2876.2 -167.0Q2878.2 -170.0 2883.2 -169.0Q2888.2 -168.0 2888.2 -165.0L2877.2 -51.0Q2876.2 -39.0 2873.7 -36.0Q2871.2 -33.0 2864.2 -29.0Q2813.2 -6.0 2766.7 3.5Q2720.2 13.0 2667.2 13.0Q2561.2 13.0 2478.7 -28.5Q2396.2 -70.0 2349.2 -143.5Q2302.2 -217.0 2302.2 -314.0Q2302.2 -386.0 2329.7 -445.0Q2357.2 -504.0 2407.2 -547.0Q2457.2 -590.0 2523.7 -613.0Q2590.2 -636.0 2669.2 -636.0ZM2393.2 -293.8L2665.5 -293.8L2665.5 -315.8L2393.2 -315.8ZM3483.5 0.0Q3467.5 0.0 3431.0 -38.5Q3394.5 -77.0 3343.5 -148.5Q3292.5 -220.0 3228.5 -319.0L3295.5 -340.0Q3379.5 -219.0 3438.0 -147.0Q3496.5 -75.0 3541.5 -43.5Q3586.5 -12.0 3627.5 -12.0Q3630.5 -12.0 3630.5 -6.0Q3630.5 0.0 3627.5 0.0Q3571.5 0.0 3536.0 -0.0Q3500.5 0.0 3483.5 0.0ZM3243.5 -628.0Q3327.5 -628.0 3372.0 -592.5Q3416.5 -557.0 3416.5 -498.0Q3416.5 -442.0 3384.5 -398.0Q3352.5 -354.0 3301.0 -329.0Q3249.5 -304.0 3190.5 -304.0Q3178.5 -304.0 3165.5 -304.5Q3152.5 -305.0 3141.5 -306.0L3141.5 -81.0Q3141.5 -52.0 3147.0 -37.0Q3152.5 -22.0 3170.0 -17.0Q3187.5 -12.0 3222.5 -12.0Q3225.5 -12.0 3225.5 -6.0Q3225.5 0.0 3222.5 0.0Q3197.5 0.0 3167.5 -1.0Q3137.5 -2.0 3101.5 -2.0Q3067.5 -2.0 3036.5 -1.0Q3005.5 0.0 2980.5 0.0Q2977.5 0.0 2977.5 -6.0Q2977.5 -12.0 2980.5 -12.0Q3014.5 -12.0 3032.0 -17.0Q3049.5 -22.0 3056.0 -37.0Q3062.5 -52.0 3062.5 -81.0L3062.5 -544.0Q3062.5 -573.0 3056.5 -587.5Q3050.5 -602.0 3033.5 -607.5Q3016.5 -613.0 2981.5 -613.0Q2979.5 -613.0 2979.5 -619.0Q2979.5 -625.0 2981.5 -625.0Q3006.5 -625.0 3037.0 -623.5Q3067.5 -622.0 3101.5 -622.0Q3133.5 -622.0 3173.5 -625.0Q3213.5 -628.0 3243.5 -628.0ZM3334.5 -466.0Q3334.5 -522.0 3319.5 -553.5Q3304.5 -585.0 3277.0 -598.0Q3249.5 -611.0 3212.5 -611.0Q3174.5 -611.0 3158.0 -597.5Q3141.5 -584.0 3141.5 -542.0L3141.5 -331.0Q3155.5 -330.0 3172.0 -329.0Q3188.5 -328.0 3200.5 -328.0Q3274.5 -328.0 3304.5 -362.0Q3334.5 -396.0 3334.5 -466.0ZM3912.4 -261.0L3924.4 -283.0L4196.4 -283.0L4203.4 -261.0ZM4429.4 -12.0Q4434.4 -12.0 4434.4 -6.0Q4434.4 0.0 4429.4 0.0Q4400.4 0.0 4369.9 -2.0Q4339.4 -4.0 4310.4 -4.0Q4278.4 -4.0 4254.9 -2.0Q4231.4 0.0 4202.4 0.0Q4198.4 0.0 4198.4 -6.0Q4198.4 -12.0 4202.4 -12.0Q4251.4 -12.0 4262.4 -27.5Q4273.4 -43.0 4251.4 -89.0L4036.4 -536.0L4068.4 -584.0L3873.4 -132.0Q3847.4 -71.0 3870.4 -41.5Q3893.4 -12.0 3956.4 -12.0Q3961.4 -12.0 3961.4 -6.0Q3961.4 0.0 3956.4 0.0Q3926.4 0.0 3901.4 -2.0Q3876.4 -4.0 3838.4 -4.0Q3801.4 -4.0 3778.9 -2.0Q3756.4 0.0 3724.4 0.0Q3720.4 0.0 3720.4 -6.0Q3720.4 -12.0 3724.4 -12.0Q3751.4 -12.0 3771.4 -22.5Q3791.4 -33.0 3809.9 -61.0Q3828.4 -89.0 3850.4 -141.0L4063.4 -632.0Q4064.4 -635.0 4070.4 -635.5Q4076.4 -636.0 4077.4 -632.0L4317.4 -137.0Q4341.4 -88.0 4358.9 -60.5Q4376.4 -33.0 4393.4 -22.5Q4410.4 -12.0 4429.4 -12.0ZM1163.7 -858.4L2930.2 -858.4L2930.2 -827.1L2137.1 -827.1C2110.0 -827.1 2088.0 -805.1 2088.0 -778.0L2088.0 163.5C2088.0 184.8 2105.3 202.1 2126.6 202.1L2390.2 202.1L2390.2 233.4L1715.5 233.4L1715.5 202.1L1979.2 202.1C2000.5 202.1 2017.8 184.8 2017.8 163.5L2017.8 -778.0C2017.8 -805.1 1995.8 -827.1 1968.6 -827.1L1163.7 -827.1Z"/><path transform="translate(1230.4,520.9) scale(0.1200)" d="M200.0 -287.0L209.0 -305.0L468.0 -305.0L475.0 -287.0ZM694.0 -12.0Q698.0 -12.0 698.0 -6.0Q698.0 0.0 694.0 0.0Q666.0 0.0 636.5 -2.0Q607.0 -4.0 580.0 -4.0Q549.0 -4.0 526.5 -2.0Q504.0 0.0 477.0 0.0Q473.0 0.0 473.0 -6.0Q473.0 -12.0 477.0 -12.0Q533.0 -12.0 547.5 -27.0Q562.0 -42.0 543.0 -84.0L317.0 -570.0L336.0 -587.0L143.0 -123.0Q118.0 -62.0 139.0 -37.0Q160.0 -12.0 228.0 -12.0Q233.0 -12.0 233.0 -6.0Q233.0 0.0 228.0 0.0Q198.0 0.0 173.0 -2.0Q148.0 -4.0 110.0 -4.0Q75.0 -4.0 53.5 -2.0Q32.0 0.0 2.0 0.0Q-2.0 0.0 -2.0 -6.0Q-2.0 -12.0 2.0 -12.0Q29.0 -12.0 49.0 -22.0Q69.0 -32.0 86.5 -58.0Q104.0 -84.0 124.0 -132.0L333.0 -635.0Q335.0 -638.0 339.5 -638.0Q344.0 -638.0 345.0 -635.0L577.0 -137.0Q600.0 -87.0 618.0 -59.5Q636.0 -32.0 654.0 -22.0Q672.0 -12.0 694.0 -12.0Z M1820.5 0.0Q1803.5 0.0 1764.5 -39.0Q1725.5 -78.0 1670.5 -150.5Q1615.5 -223.0 1547.5 -322.0L1595.5 -337.0Q1681.5 -216.0 1741.5 -144.5Q1801.5 -73.0 1847.5 -42.5Q1893.5 -12.0 1936.5 -12.0Q1939.5 -12.0 1939.5 -6.0Q1939.5 0.0 1936.5 0.0Q1891.5 0.0 1863.0 -0.0Q1834.5 0.0 1820.5 0.0ZM1559.5 -628.0Q1636.5 -628.0 1677.0 -591.0Q1717.5 -554.0 1717.5 -495.0Q1717.5 -442.0 1686.5 -399.0Q1655.5 -356.0 1604.0 -331.0Q1552.5 -306.0 1490.5 -306.0Q1481.5 -306.0 1469.5 -307.0Q1457.5 -308.0 1447.5 -309.0L1447.5 -81.0Q1447.5 -52.0 1453.5 -37.0Q1459.5 -22.0 1479.0 -17.0Q1498.5 -12.0 1536.5 -12.0Q1539.5 -12.0 1539.5 -6.0Q1539.5 0.0 1536.5 0.0Q1512.5 0.0 1484.0 -1.0Q1455.5 -2.0 1420.5 -2.0Q1388.5 -2.0 1358.5 -1.0Q1328.5 0.0 1304.5 0.0Q1302.5 0.0 1302.5 -6.0Q1302.5 -12.0 1304.5 -12.0Q1342.5 -12.0 1362.0 -17.0Q1381.5 -22.0 1388.5 -37.0Q1395.5 -52.0 1395.5 -81.0L1395.5 -544.0Q1395.5 -573.0 1389.0 -587.5Q1382.5 -602.0 1363.5 -607.5Q1344.5 -613.0 1306.5 -613.0Q1303.5 -613.0 1303.5 -619.0Q1303.5 -625.0 1306.5 -625.0Q1329.5 -625.0 1359.0 -623.5Q1388.5 -622.0 1420.5 -622.0Q1451.5 -622.0 1492.5 -625.0Q1533.5 -628.0 1559.5 -628.0ZM1661.5 -468.0Q1661.5 -522.0 1644.0 -554.0Q1626.5 -586.0 1594.0 -600.5Q1561.5 -615.0 1515.5 -615.0Q1479.5 -615.0 1463.5 -602.0Q1447.5 -589.0 1447.5 -542.0L1447.5 -332.0Q1461.5 -331.0 1478.0 -330.0Q1494.5 -329.0 1507.5 -329.0Q1593.5 -329.0 1627.5 -365.0Q1661.5 -401.0 1661.5 -468.0Z M2897.0 -636.0Q2942.0 -636.0 2974.5 -632.0Q3007.0 -628.0 3035.0 -618.5Q3063.0 -609.0 3094.0 -593.0Q3100.0 -589.0 3101.5 -586.5Q3103.0 -584.0 3104.0 -571.0L3116.0 -457.0Q3116.0 -455.0 3110.5 -453.5Q3105.0 -452.0 3104.0 -456.0Q3082.0 -539.0 3031.5 -580.5Q2981.0 -622.0 2897.0 -622.0Q2808.0 -622.0 2742.0 -585.0Q2676.0 -548.0 2639.5 -480.0Q2603.0 -412.0 2603.0 -320.0Q2603.0 -255.0 2626.5 -197.0Q2650.0 -139.0 2691.5 -95.0Q2733.0 -51.0 2786.0 -26.0Q2839.0 -1.0 2899.0 -1.0Q2985.0 -1.0 3037.0 -42.5Q3089.0 -84.0 3111.0 -164.0Q3112.0 -167.0 3117.5 -166.0Q3123.0 -165.0 3123.0 -163.0L3115.0 -57.0Q3114.0 -45.0 3112.0 -42.0Q3110.0 -39.0 3104.0 -35.0Q3051.0 -7.0 3005.5 3.0Q2960.0 13.0 2898.0 13.0Q2793.0 13.0 2712.0 -28.5Q2631.0 -70.0 2585.0 -145.0Q2539.0 -220.0 2539.0 -319.0Q2539.0 -391.0 2565.5 -449.0Q2592.0 -507.0 2640.5 -549.0Q2689.0 -591.0 2754.0 -613.5Q2819.0 -636.0 2897.0 -636.0Z M4317.5 -542.0Q4317.5 -571.0 4311.5 -586.0Q4305.5 -601.0 4286.5 -607.0Q4267.5 -613.0 4228.5 -613.0Q4225.5 -613.0 4225.5 -619.0Q4225.5 -625.0 4228.5 -625.0Q4251.5 -625.0 4281.0 -623.5Q4310.5 -622.0 4344.5 -622.0Q4376.5 -622.0 4406.5 -623.5Q4436.5 -625.0 4459.5 -625.0Q4462.5 -625.0 4462.5 -619.0Q4462.5 -613.0 4459.5 -613.0Q4421.5 -613.0 4402.0 -607.5Q4382.5 -602.0 4376.0 -587.5Q4369.5 -573.0 4369.5 -544.0L4369.5 -81.0Q4369.5 -52.0 4376.0 -37.0Q4382.5 -22.0 4402.0 -17.0Q4421.5 -12.0 4459.5 -12.0Q4462.5 -12.0 4462.5 -6.0Q4462.5 0.0 4459.5 0.0Q4436.5 0.0 4406.5 -1.0Q4376.5 -2.0 4344.5 -2.0Q4310.5 -2.0 4281.0 -1.0Q4251.5 0.0 4228.5 0.0Q4225.5 0.0 4225.5 -6.0Q4225.5 -12.0 4228.5 -12.0Q4267.5 -12.0 4286.5 -17.0Q4305.5 -22.0 4311.5 -37.0Q4317.5 -52.0 4317.5 -81.0ZM3889.5 -316.0L3889.5 -335.0L4339.5 -335.0L4339.5 -316.0ZM3865.5 -81.0L3865.5 -544.0Q3865.5 -573.0 3859.0 -587.5Q3852.5 -602.0 3833.5 -607.5Q3814.5 -613.0 3776.5 -613.0Q3774.5 -613.0 3774.5 -619.0Q3774.5 -625.0 3776.5 -625.0Q3800.5 -625.0 3830.0 -623.5Q3859.5 -622.0 3891.5 -622.0Q3926.5 -622.0 3955.5 -623.5Q3984.5 -625.0 4007.5 -625.0Q4009.5 -625.0 4009.5 -619.0Q4009.5 -613.0 4007.5 -613.0Q3969.5 -613.0 3950.5 -607.0Q3931.5 -601.0 3925.0 -586.0Q3918.5 -571.0 3918.5 -542.0L3918.5 -81.0Q3918.5 -52.0 3924.5 -37.0Q3930.5 -22.0 3950.0 -17.0Q3969.5 -12.0 4007.5 -12.0Q4009.5 -12.0 4009.5 -6.0Q4009.5 0.0 4007.5 0.0Q3983.5 0.0 3955.0 -1.0Q3926.5 -2.0 3891.5 -2.0Q3859.5 -2.0 3829.5 -1.0Q3799.5 0.0 3775.5 0.0Q3773.5 0.0 3773.5 -6.0Q3773.5 -12.0 3775.5 -12.0Q3813.5 -12.0 3833.0 -17.0Q3852.5 -22.0 3859.0 -37.0Q3865.5 -52.0 3865.5 -81.0Z M5252.0 -81.0Q5252.0 -52.0 5258.0 -37.0Q5264.0 -22.0 5283.5 -17.0Q5303.0 -12.0 5341.0 -12.0Q5343.0 -12.0 5343.0 -6.0Q5343.0 0.0 5341.0 0.0Q5317.0 0.0 5288.0 -1.0Q5259.0 -2.0 5224.0 -2.0Q5191.0 -2.0 5161.5 -1.0Q5132.0 0.0 5108.0 0.0Q5105.0 0.0 5105.0 -6.0Q5105.0 -12.0 5108.0 -12.0Q5146.0 -12.0 5165.5 -17.0Q5185.0 -22.0 5191.5 -37.0Q5198.0 -52.0 5198.0 -81.0L5198.0 -544.0Q5198.0 -573.0 5191.5 -587.5Q5185.0 -602.0 5165.5 -607.5Q5146.0 -613.0 5108.0 -613.0Q5105.0 -613.0 5105.0 -619.0Q5105.0 -625.0 5108.0 -625.0Q5132.0 -625.0 5161.5 -623.5Q5191.0 -622.0 5224.0 -622.0Q5259.0 -622.0 5288.5 -623.5Q5318.0 -625.0 5341.0 -625.0Q5343.0 -625.0 5343.0 -619.0Q5343.0 -613.0 5341.0 -613.0Q5303.0 -613.0 5284.0 -607.0Q5265.0 -601.0 5258.5 -586.0Q5252.0 -571.0 5252.0 -542.0Z M6132.5 -608.0Q6069.5 -608.0 6041.0 -578.0Q6012.5 -548.0 6001.5 -471.0Q6001.5 -469.0 5995.5 -469.0Q5989.5 -469.0 5989.5 -471.0Q5991.5 -483.0 5994.0 -506.0Q5996.5 -529.0 5998.5 -555.5Q6000.5 -582.0 6002.0 -606.5Q6003.5 -631.0 6003.5 -647.0Q6003.5 -652.0 6009.5 -652.0Q6015.5 -652.0 6015.5 -647.0Q6015.5 -637.0 6025.0 -632.5Q6034.5 -628.0 6047.0 -626.5Q6059.5 -625.0 6068.5 -625.0Q6154.5 -622.0 6269.5 -622.0Q6340.5 -622.0 6382.0 -623.5Q6423.5 -625.0 6462.5 -625.0Q6495.5 -625.0 6514.0 -629.5Q6532.5 -634.0 6537.5 -650.0Q6538.5 -654.0 6543.5 -654.0Q6548.5 -654.0 6548.5 -650.0Q6547.5 -635.0 6545.5 -610.0Q6543.5 -585.0 6542.5 -557.5Q6541.5 -530.0 6540.5 -506.5Q6539.5 -483.0 6539.5 -471.0Q6539.5 -469.0 6533.5 -469.0Q6527.5 -469.0 6527.5 -471.0Q6527.5 -548.0 6501.5 -578.0Q6475.5 -608.0 6406.5 -608.0Q6359.5 -608.0 6336.0 -604.5Q6312.5 -601.0 6305.0 -587.5Q6297.5 -574.0 6297.5 -542.0L6297.5 -81.0Q6297.5 -52.0 6304.5 -37.0Q6311.5 -22.0 6333.0 -17.0Q6354.5 -12.0 6398.5 -12.0Q6400.5 -12.0 6400.5 -6.0Q6400.5 0.0 6398.5 0.0Q6372.5 0.0 6340.0 -1.0Q6307.5 -2.0 6269.5 -2.0Q6233.5 -2.0 6201.0 -1.0Q6168.5 0.0 6141.5 0.0Q6139.5 0.0 6139.5 -6.0Q6139.5 -12.0 6141.5 -12.0Q6184.5 -12.0 6206.5 -17.0Q6228.5 -22.0 6236.0 -37.0Q6243.5 -52.0 6243.5 -81.0L6243.5 -544.0Q6243.5 -576.0 6235.5 -589.5Q6227.5 -603.0 6203.5 -605.5Q6179.5 -608.0 6132.5 -608.0Z M7604.0 0.0L7191.0 0.0Q7189.0 0.0 7189.0 -6.0Q7189.0 -12.0 7191.0 -12.0Q7229.0 -12.0 7248.0 -17.0Q7267.0 -22.0 7273.5 -37.0Q7280.0 -52.0 7280.0 -81.0L7280.0 -544.0Q7280.0 -573.0 7273.5 -587.5Q7267.0 -602.0 7248.0 -607.5Q7229.0 -613.0 7191.0 -613.0Q7189.0 -613.0 7189.0 -619.0Q7189.0 -625.0 7191.0 -625.0L7587.0 -625.0Q7596.0 -625.0 7596.0 -616.0L7598.0 -495.0Q7598.0 -492.0 7592.5 -492.0Q7587.0 -492.0 7587.0 -495.0Q7587.0 -547.0 7560.0 -576.5Q7533.0 -606.0 7489.0 -606.0L7420.0 -606.0Q7383.0 -606.0 7364.5 -601.0Q7346.0 -596.0 7339.5 -581.5Q7333.0 -567.0 7333.0 -538.0L7333.0 -85.0Q7333.0 -57.0 7339.5 -43.0Q7346.0 -29.0 7364.5 -24.0Q7383.0 -19.0 7420.0 -19.0L7512.0 -19.0Q7552.0 -19.0 7581.0 -54.0Q7610.0 -89.0 7617.0 -146.0Q7617.0 -149.0 7623.0 -148.5Q7629.0 -148.0 7629.0 -145.0Q7625.0 -119.0 7622.5 -82.5Q7620.0 -46.0 7620.0 -15.0Q7620.0 0.0 7604.0 0.0ZM7548.0 -235.0Q7548.0 -280.0 7529.0 -298.0Q7510.0 -316.0 7462.0 -316.0L7308.0 -316.0L7308.0 -335.0L7465.0 -335.0Q7511.0 -335.0 7529.0 -350.5Q7547.0 -366.0 7547.0 -404.0Q7547.0 -406.0 7553.0 -406.0Q7559.0 -406.0 7559.0 -404.0Q7559.0 -375.0 7558.5 -359.0Q7558.0 -343.0 7558.0 -325.0Q7558.0 -303.0 7559.0 -281.5Q7560.0 -260.0 7560.0 -235.0Q7560.0 -233.0 7554.0 -233.0Q7548.0 -233.0 7548.0 -235.0Z M8649.5 -636.0Q8694.5 -636.0 8727.0 -632.0Q8759.5 -628.0 8787.5 -618.5Q8815.5 -609.0 8846.5 -593.0Q8852.5 -589.0 8854.0 -586.5Q8855.5 -584.0 8856.5 -571.0L8868.5 -457.0Q8868.5 -455.0 8863.0 -453.5Q8857.5 -452.0 8856.5 -456.0Q8834.5 -539.0 8784.0 -580.5Q8733.5 -622.0 8649.5 -622.0Q8560.5 -622.0 8494.5 -585.0Q8428.5 -548.0 8392.0 -480.0Q8355.5 -412.0 8355.5 -320.0Q8355.5 -255.0 8379.0 -197.0Q8402.5 -139.0 8444.0 -95.0Q8485.5 -51.0 8538.5 -26.0Q8591.5 -1.0 8651.5 -1.0Q8737.5 -1.0 8789.5 -42.5Q8841.5 -84.0 8863.5 -164.0Q8864.5 -167.0 8870.0 -166.0Q8875.5 -165.0 8875.5 -163.0L8867.5 -57.0Q8866.5 -45.0 8864.5 -42.0Q8862.5 -39.0 8856.5 -35.0Q8803.5 -7.0 8758.0 3.0Q8712.5 13.0 8650.5 13.0Q8545.5 13.0 8464.5 -28.5Q8383.5 -70.0 8337.5 -145.0Q8291.5 -220.0 8291.5 -319.0Q8291.5 -391.0 8318.0 -449.0Q8344.5 -507.0 8393.0 -549.0Q8441.5 -591.0 8506.5 -613.5Q8571.5 -636.0 8649.5 -636.0Z M9672.0 -608.0Q9609.0 -608.0 9580.5 -578.0Q9552.0 -548.0 9541.0 -471.0Q9541.0 -469.0 9535.0 -469.0Q9529.0 -469.0 9529.0 -471.0Q9531.0 -483.0 9533.5 -506.0Q9536.0 -529.0 9538.0 -555.5Q9540.0 -582.0 9541.5 -606.5Q9543.0 -631.0 9543.0 -647.0Q9543.0 -652.0 9549.0 -652.0Q9555.0 -652.0 9555.0 -647.0Q9555.0 -637.0 9564.5 -632.5Q9574.0 -628.0 9586.5 -626.5Q9599.0 -625.0 9608.0 -625.0Q9694.0 -622.0 9809.0 -622.0Q9880.0 -622.0 9921.5 -623.5Q9963.0 -625.0 10002.0 -625.0Q10035.0 -625.0 10053.5 -629.5Q10072.0 -634.0 10077.0 -650.0Q10078.0 -654.0 10083.0 -654.0Q10088.0 -654.0 10088.0 -650.0Q10087.0 -635.0 10085.0 -610.0Q10083.0 -585.0 10082.0 -557.5Q10081.0 -530.0 10080.0 -506.5Q10079.0 -483.0 10079.0 -471.0Q10079.0 -469.0 10073.0 -469.0Q10067.0 -469.0 10067.0 -471.0Q10067.0 -548.0 10041.0 -578.0Q10015.0 -608.0 9946.0 -608.0Q9899.0 -608.0 9875.5 -604.5Q9852.0 -601.0 9844.5 -587.5Q9837.0 -574.0 9837.0 -542.0L9837.0 -81.0Q9837.0 -52.0 9844.0 -37.0Q9851.0 -22.0 9872.5 -17.0Q9894.0 -12.0 9938.0 -12.0Q9940.0 -12.0 9940.0 -6.0Q9940.0 0.0 9938.0 0.0Q9912.0 0.0 9879.5 -1.0Q9847.0 -2.0 9809.0 -2.0Q9773.0 -2.0 9740.5 -1.0Q9708.0 0.0 9681.0 0.0Q9679.0 0.0 9679.0 -6.0Q9679.0 -12.0 9681.0 -12.0Q9724.0 -12.0 9746.0 -17.0Q9768.0 -22.0 9775.5 -37.0Q9783.0 -52.0 9783.0 -81.0L9783.0 -544.0Q9783.0 -576.0 9775.0 -589.5Q9767.0 -603.0 9743.0 -605.5Q9719.0 -608.0 9672.0 -608.0Z M11258.5 -520.0Q11258.5 -568.0 11238.0 -590.5Q11217.5 -613.0 11173.5 -613.0Q11170.5 -613.0 11170.5 -619.0Q11170.5 -625.0 11173.5 -625.0Q11195.5 -625.0 11219.0 -623.5Q11242.5 -622.0 11270.5 -622.0Q11293.5 -622.0 11317.0 -623.5Q11340.5 -625.0 11359.5 -625.0Q11361.5 -625.0 11361.5 -619.0Q11361.5 -613.0 11359.5 -613.0Q11319.5 -613.0 11300.0 -590.5Q11280.5 -568.0 11280.5 -520.0L11280.5 -234.0Q11280.5 -155.0 11251.5 -100.0Q11222.5 -45.0 11170.0 -16.0Q11117.5 13.0 11047.5 13.0Q10973.5 13.0 10918.5 -16.5Q10863.5 -46.0 10833.5 -99.5Q10803.5 -153.0 10803.5 -225.0L10803.5 -544.0Q10803.5 -573.0 10797.0 -587.5Q10790.5 -602.0 10771.5 -607.5Q10752.5 -613.0 10714.5 -613.0Q10712.5 -613.0 10712.5 -619.0Q10712.5 -625.0 10714.5 -625.0Q10738.5 -625.0 10767.5 -623.5Q10796.5 -622.0 10829.5 -622.0Q10863.5 -622.0 10893.0 -623.5Q10922.5 -625.0 10944.5 -625.0Q10947.5 -625.0 10947.5 -619.0Q10947.5 -613.0 10944.5 -613.0Q10906.5 -613.0 10887.5 -607.0Q10868.5 -601.0 10862.5 -586.0Q10856.5 -571.0 10856.5 -542.0L10856.5 -260.0Q10856.5 -142.0 10911.5 -79.0Q10966.5 -16.0 11065.5 -16.0Q11157.5 -16.0 11208.0 -74.0Q11258.5 -132.0 11258.5 -233.0Z M12506.0 0.0Q12489.0 0.0 12450.0 -39.0Q12411.0 -78.0 12356.0 -150.5Q12301.0 -223.0 12233.0 -322.0L12281.0 -337.0Q12367.0 -216.0 12427.0 -144.5Q12487.0 -73.0 12533.0 -42.5Q12579.0 -12.0 12622.0 -12.0Q12625.0 -12.0 12625.0 -6.0Q12625.0 0.0 12622.0 0.0Q12577.0 0.0 12548.5 -0.0Q12520.0 0.0 12506.0 0.0ZM12245.0 -628.0Q12322.0 -628.0 12362.5 -591.0Q12403.0 -554.0 12403.0 -495.0Q12403.0 -442.0 12372.0 -399.0Q12341.0 -356.0 12289.5 -331.0Q12238.0 -306.0 12176.0 -306.0Q12167.0 -306.0 12155.0 -307.0Q12143.0 -308.0 12133.0 -309.0L12133.0 -81.0Q12133.0 -52.0 12139.0 -37.0Q12145.0 -22.0 12164.5 -17.0Q12184.0 -12.0 12222.0 -12.0Q12225.0 -12.0 12225.0 -6.0Q12225.0 0.0 12222.0 0.0Q12198.0 0.0 12169.5 -1.0Q12141.0 -2.0 12106.0 -2.0Q12074.0 -2.0 12044.0 -1.0Q12014.0 0.0 11990.0 0.0Q11988.0 0.0 11988.0 -6.0Q11988.0 -12.0 11990.0 -12.0Q12028.0 -12.0 12047.5 -17.0Q12067.0 -22.0 12074.0 -37.0Q12081.0 -52.0 12081.0 -81.0L12081.0 -544.0Q12081.0 -573.0 12074.5 -587.5Q12068.0 -602.0 12049.0 -607.5Q12030.0 -613.0 11992.0 -613.0Q11989.0 -613.0 11989.0 -619.0Q11989.0 -625.0 11992.0 -625.0Q12015.0 -625.0 12044.5 -623.5Q12074.0 -622.0 12106.0 -622.0Q12137.0 -622.0 12178.0 -625.0Q12219.0 -628.0 12245.0 -628.0ZM12347.0 -468.0Q12347.0 -522.0 12329.5 -554.0Q12312.0 -586.0 12279.5 -600.5Q12247.0 -615.0 12201.0 -615.0Q12165.0 -615.0 12149.0 -602.0Q12133.0 -589.0 12133.0 -542.0L12133.0 -332.0Q12147.0 -331.0 12163.5 -330.0Q12180.0 -329.0 12193.0 -329.0Q12279.0 -329.0 12313.0 -365.0Q12347.0 -401.0 12347.0 -468.0Z M13632.5 0.0L13219.5 0.0Q13217.5 0.0 13217.5 -6.0Q13217.5 -12.0 13219.5 -12.0Q13257.5 -12.0 13276.5 -17.0Q13295.5 -22.0 13302.0 -37.0Q13308.5 -52.0 13308.5 -81.0L13308.5 -544.0Q13308.5 -573.0 13302.0 -587.5Q13295.5 -602.0 13276.5 -607.5Q13257.5 -613.0 13219.5 -613.0Q13217.5 -613.0 13217.5 -619.0Q13217.5 -625.0 13219.5 -625.0L13615.5 -625.0Q13624.5 -625.0 13624.5 -616.0L13626.5 -495.0Q13626.5 -492.0 13621.0 -492.0Q13615.5 -492.0 13615.5 -495.0Q13615.5 -547.0 13588.5 -576.5Q13561.5 -606.0 13517.5 -606.0L13448.5 -606.0Q13411.5 -606.0 13393.0 -601.0Q13374.5 -596.0 13368.0 -581.5Q13361.5 -567.0 13361.5 -538.0L13361.5 -85.0Q13361.5 -57.0 13368.0 -43.0Q13374.5 -29.0 13393.0 -24.0Q13411.5 -19.0 13448.5 -19.0L13540.5 -19.0Q13580.5 -19.0 13609.5 -54.0Q13638.5 -89.0 13645.5 -146.0Q13645.5 -149.0 13651.5 -148.5Q13657.5 -148.0 13657.5 -145.0Q13653.5 -119.0 13651.0 -82.5Q13648.5 -46.0 13648.5 -15.0Q13648.5 0.0 13632.5 0.0ZM13576.5 -235.0Q13576.5 -280.0 13557.5 -298.0Q13538.5 -316.0 13490.5 -316.0L13336.5 -316.0L13336.5 -335.0L13493.5 -335.0Q13539.5 -335.0 13557.5 -350.5Q13575.5 -366.0 13575.5 -404.0Q13575.5 -406.0 13581.5 -406.0Q13587.5 -406.0 13587.5 -404.0Q13587.5 -375.0 13587.0 -359.0Q13586.5 -343.0 13586.5 -325.0Q13586.5 -303.0 13587.5 -281.5Q13588.5 -260.0 13588.5 -235.0Q13588.5 -233.0 13582.5 -233.0Q13576.5 -233.0 13576.5 -235.0Z"/></g></symbol>
+    <symbol id="statera-t" viewBox="186 18.7 271 167.3"><path fill="#161616" d="M270.94 185.70 C270.53 185.24 270.54 181.85 270.96 181.35 L271.25 181.00 L292.09 180.96 L312.92 180.92 L313.84 180.35 C315.15 179.53 315.60 179.06 316.30 177.84 L316.92 176.75 L316.92 103.00 L316.92 29.25 L316.27 28.01 C315.42 26.37 314.80 25.64 313.54 24.81 C311.52 23.48 317.70 23.61 248.42 23.51 L186.43 23.42 L186.22 23.00 C185.90 22.37 185.93 19.51 186.26 19.04 L186.52 18.67 L321.50 18.67 L456.48 18.67 L456.74 19.04 C457.13 19.60 457.11 22.66 456.71 23.15 L456.42 23.50 L395.42 23.55 C337.83 23.59 334.36 23.61 333.35 23.88 C331.35 24.43 329.69 25.82 328.65 27.83 L328.08 28.92 L328.08 103.00 L328.08 177.08 L328.50 177.75 C329.13 178.77 329.96 179.62 330.98 180.30 L331.91 180.92 L352.88 181.00 C371.27 181.07 373.86 181.11 374.00 181.33 C374.22 181.67 374.21 185.27 373.99 185.68 C373.82 186.00 373.07 186.00 322.52 186.00 C273.03 186.00 271.21 185.99 270.94 185.70 Z"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap" id="app">
+  <header class="masthead">
+    <svg class="logo" viewBox="0 0 4538.4 1404" role="img" aria-label="STATERA Architecture"><use href="#statera-logo"/></svg>
+    <div class="who">
+      <b>Michel Mangion</b>Architecte
+      <div><button type="button" class="discreet-toggle" id="discreetBtn">Masquer les chiffres internes</button></div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <main>
+      <section class="block">
+        <h2>Client</h2>
+        <div class="grid g3">
+          <div class="f req"><label for="clientFirstName">Prénom</label><input id="clientFirstName" data-store="dos" autocomplete="off" placeholder=" "></div>
+          <div class="f req"><label for="clientLastName">Nom</label><input id="clientLastName" data-store="dos" autocomplete="off" placeholder=" "></div>
+          <div class="f"><label for="clientCompany">Société <span class="unit">facultatif</span></label><input id="clientCompany" data-store="dos" autocomplete="off"></div>
+          <div class="f req span3"><label for="clientAddress">Adresse</label><input id="clientAddress" data-store="dos" autocomplete="off" placeholder=" "></div>
+          <div class="f"><label for="clientEmail">Courriel <span class="unit">facultatif</span></label><input id="clientEmail" type="email" data-store="dos" autocomplete="off"></div>
+          <div class="f"><label for="clientPhone">Téléphone <span class="unit">facultatif</span></label><input id="clientPhone" type="tel" data-store="dos" autocomplete="off"></div>
+          <div class="f"><label for="clientSiren">SIREN <span class="unit">client professionnel</span></label><input id="clientSiren" data-store="dos" inputmode="numeric" autocomplete="off"></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>Projet</h2>
+        <div class="grid g3">
+          <div class="f req"><label for="projectName">Nom du projet</label><input id="projectName" data-store="dos" placeholder=" "></div>
+          <div class="f req span2"><label for="projectLocation">Adresse du projet</label><input id="projectLocation" data-store="dos" placeholder=" "></div>
+          <div class="f"><label for="cadastralRefs">Référence cadastrale <span class="unit">facultatif</span></label><input id="cadastralRefs" data-store="dos"></div>
+          <div class="f"><label for="landArea">Surface du terrain <span class="unit">m², facultatif</span></label><input id="landArea" class="num-in" inputmode="decimal" data-store="dos" value=""></div>
+          <div class="f"><label for="usage">Usage de l’opération</label><select id="usage" data-store="dos"><option value="personnel" selected>Usage personnel</option><option value="professionnel">Usage professionnel</option></select></div>
+          <div class="f"><label for="geotech">Étude géotechnique (argiles)</label><select id="geotech" data-store="dos"><option value="" selected>Non précisé</option><option value="na">Sans objet (terrain non exposé)</option><option value="received">Remise à l’architecte</option><option value="notreceived">Non remise</option></select></div>
+          <div class="f"><label for="proposalRef">Référence</label><input id="proposalRef" data-store="dos"></div>
+          <div class="f"><label for="docDate">Date</label><input id="docDate" type="date" data-store="dos"></div>
+          <div class="f span3"><label for="projectProgram">Programme du projet <span class="unit">repris au contrat</span></label><textarea id="projectProgram" data-store="dos" rows="2" placeholder="Ex. : rénovation d’une maison de village, création de deux chambres et d’une terrasse"></textarea></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>Surfaces et budget</h2>
+        <div class="grid g4">
+          <div class="f"><label for="sn">Neuf / extension <span class="unit">m²</span></label><input id="sn" class="big num-in" inputmode="decimal" data-store="dos" value="0"></div>
+          <div class="f"><label for="sr">Rénovation <span class="unit">m²</span></label><input id="sr" class="big num-in" inputmode="decimal" data-store="dos" value="0"></div>
+          <div class="f"><label for="si">Architecture intérieure <span class="unit">m²</span></label><input id="si" class="big num-in" inputmode="decimal" data-store="dos" value="0"></div>
+          <div class="f"><label for="works">Budget travaux <span class="unit">€ HT</span></label><input id="works" class="big num-in money" inputmode="decimal" data-store="dos" value="0"><div class="hint" id="worksHint"></div></div>
+        </div>
+        <div class="grid g3" style="margin-top:14px">
+          <div class="f"><label for="complexity">Complexité du projet</label>
+            <select id="complexity" data-store="dos">
+              <option value="0.9">Simple</option><option value="1" selected>Standard</option>
+              <option value="1.15">Complexe</option><option value="1.3">Très complexe</option>
+            </select></div>
+          <div class="f" id="renoWrap"><label for="renoLevel">Niveau de rénovation</label>
+            <select id="renoLevel" data-store="dos">
+              <option value="1.15">Légère</option><option value="1.3" selected>Standard</option><option value="1.45">Lourde</option>
+            </select></div>
+          <div class="f" id="intWrap"><label for="intComplexity">Niveau de détail intérieur</label>
+            <select id="intComplexity" data-store="dos">
+              <option value="1" selected>Standard</option><option value="1.15">Soigné</option><option value="1.3">Très détaillé</option>
+            </select></div>
+        </div>
+        <div class="presets" role="group" aria-label="Sélections rapides">
+          <button type="button" class="btn" data-preset="pc">Jusqu’au PC</button>
+          <button type="button" class="btn" data-preset="full">Mission complète</button>
+          <button type="button" class="btn" data-preset="mixed">Projet mixte + intérieur</button>
+          <button type="button" class="btn ghost" data-preset="none">Tout décocher</button>
+        </div>
+      </section>
+
+      <section class="block" id="missions">
+        <h2>Missions</h2>
+        <div id="phases"></div>
+      </section>
+
+      <section class="block" id="insurance">
+        <h2>Assurance</h2>
+        <div class="grid g3">
+          <div class="f"><label for="insuranceHT">Coût de l’assurance <span class="unit">€ HT, refacturé au client</span></label><input id="insuranceHT" class="num-in money" inputmode="decimal" data-store="dos" value="0"><div class="hint">Laisser 0 si aucune assurance n’est refacturée.</div></div>
+          <div class="f span2"><label for="insuranceLabel">Libellé sur la proposition</label><input id="insuranceLabel" data-store="dos" value="Assurance de l’opération"></div>
+        </div>
+      </section>
+
+      <details class="acc" id="accCabinet">
+        <summary><h2>Paramètres cabinet</h2><span>enregistrés sur cet appareil</span></summary>
+        <div class="inner">
+          <div class="grid">
+            <div class="f"><label for="archFullName">Nom de l’architecte</label><input id="archFullName" data-store="cab" value="Michel Richard MANGION"></div>
+            <div class="f"><label for="archShortName">Nom d’usage (signature)</label><input id="archShortName" data-store="cab" value="Michel Mangion"></div>
+            <div class="f"><label for="archForm">Forme d’exercice</label><input id="archForm" data-store="cab" value="Entrepreneur individuel (EI)"></div>
+            <div class="f"><label for="archBrand">Nom commercial</label><input id="archBrand" data-store="cab" value="STATERA ARCHITECTURE"></div>
+            <div class="f"><label for="archSiren">SIREN</label><input id="archSiren" data-store="cab" value="831 975 206"></div>
+            <div class="f"><label for="archSiret">SIRET</label><input id="archSiret" data-store="cab" value="831 975 206 00028"></div>
+            <div class="f"><label for="archApe">Code APE</label><input id="archApe" data-store="cab" value="71.11Z — Activités d’architecture"></div>
+            <div class="f"><label for="archTva">N° TVA intracommunautaire <span class="unit">si attribué</span></label><input id="archTva" data-store="cab" placeholder="Non renseigné"></div>
+            <div class="f spanall"><label for="archAddress">Adresse professionnelle</label><input id="archAddress" data-store="cab" value="Prumaticciu, Qua de l’Église – Village, 20100 Foce"></div>
+            <div class="f"><label for="archEmail">Courriel</label><input id="archEmail" type="email" data-store="cab" placeholder="À compléter (adresse professionnelle)"></div>
+            <div class="f"><label for="archPhone">Téléphone</label><input id="archPhone" type="tel" data-store="cab" value="07 81 16 49 21"></div>
+            <div class="f"><label for="archOrderOrg">Inscription à l’Ordre</label><input id="archOrderOrg" data-store="cab" value="Conseil régional de l’Ordre des architectes de Corse"></div>
+            <div class="f"><label for="archOrderNo">N° national</label><input id="archOrderNo" data-store="cab" value="094661"></div>
+            <div class="f"><label for="archInsurer">Assureur responsabilité professionnelle</label><input id="archInsurer" data-store="cab" value="MAF (Mutuelle des Architectes Français)"></div>
+            <div class="f"><label for="archPolicy">N° de police</label><input id="archPolicy" data-store="cab" value="74711/H/105" placeholder="À compléter"></div>
+            <div class="f spanall"><label for="archInsurerAddress">Adresse de l’assureur</label><input id="archInsurerAddress" data-store="cab" placeholder="Selon l’attestation"></div>
+            <div class="f"><label for="archPolicyStart">Police valable du</label><input id="archPolicyStart" type="date" data-store="cab"></div>
+            <div class="f"><label for="archPolicyEnd">au</label><input id="archPolicyEnd" type="date" data-store="cab"></div>
+            <div class="f"><label for="archCoverage">Couverture géographique</label><input id="archCoverage" data-store="cab" value="France"></div>
+            <div class="f"><label for="archMediator">Médiateur de la consommation</label><input id="archMediator" data-store="cab" value="Centre de la médiation de la consommation des conciliateurs de justice (CM2C), désigné par le Conseil national de l’Ordre des architectes le 27 mai 2021"></div>
+            <div class="f spanall"><label for="archMediatorContact">Coordonnées du médiateur (site, adresse)</label><input id="archMediatorContact" data-store="cab" value="49 rue de Ponthieu, 75008 Paris — 01 89 47 00 14 — declarer-un-litige@cm2c.net — saisine en ligne : www.cm2c.net"></div>
+            <div class="spanall checks"><label><input type="checkbox" id="archMediatorMember" data-store="cab" checked> Adhésion au médiateur effective (sans elle, le contrat avec un particulier est bloqué)</label></div>
+            <div class="f"><label for="archClaims">Adresse des réclamations</label><input id="archClaims" data-store="cab" placeholder="Par défaut : adresse postale ou courriel"></div>
+            <div class="f"><label for="archIban">IBAN pour virement</label><input id="archIban" data-store="cab"></div>
+            <div class="f"><label for="archBic">BIC</label><input id="archBic" data-store="cab"></div>
+            <div class="f"><label for="vatRegime">Régime de TVA</label>
+              <select id="vatRegime" data-store="cab"><option value="normal" selected>TVA applicable</option><option value="franchise">Franchise en base (art. 293 B du CGI)</option></select></div>
+            <div class="f"><label for="vat">Taux de TVA <span class="unit">%</span></label><input id="vat" class="num-in" inputmode="decimal" data-store="cab" value="20"></div>
+            <div class="spanall checks"><label><input type="checkbox" id="vatDebits" data-store="cab"> Option pour le paiement de la TVA d’après les débits (mention sur les factures)</label></div>
+            <div class="f spanall"><label for="archLinks">Déclaration des liens d’intérêt <span class="unit">loi 77-2 art. 18 ; déontologie art. 15 et 29 — annexe 3</span></label><textarea id="archLinks" data-store="cab" rows="3" placeholder="À rédiger par vous : liens de parenté, participations ou liens de subordination avec des personnes ou sociétés qui tirent profit de la construction, ou absence de tels liens."></textarea></div>
+          </div>
+          <p class="note">Repris de l’avis SIRENE et de la notification d’inscription à l’Ordre. N° de police, période, adresse de l’assureur, médiateur, IBAN, régime de TVA et déclaration des liens d’intérêt restent à saisir : ils ne sont pas devinés.</p>
+        </div>
+      </details>
+
+      <details class="acc" id="accContract">
+        <summary><h2>Conditions contractuelles</h2><span>convention et échéancier</span></summary>
+        <div class="inner">
+          <div class="grid">
+            <div class="f"><label for="clientType">Qualité du client</label>
+              <select id="clientType" data-store="dos">
+                <option value="consumer" selected>Particulier (consommateur)</option>
+                <option value="smallpro">Professionnel ≤ 5 salariés, hors de son activité principale</option>
+                <option value="pro">Professionnel</option>
+              </select></div>
+            <div class="f"><label for="contractMode">Lieu de signature</label>
+              <select id="contractMode" data-store="dos">
+                <option value="onsite" selected>Au cabinet</option>
+                <option value="distance">À distance (courriel, signature électronique)</option>
+                <option value="offpremises">Hors établissement (chez le client, sur site)</option>
+              </select></div>
+            <div class="spanall checks" id="expressWrap">
+              <label><input type="checkbox" id="expressStart" data-store="dos"> Le client demande que la mission commence avant la fin du délai de rétractation de 14 jours (la case sera à cocher par lui sur le document).</label>
+            </div>
+            <div class="f"><label for="loan">Financement par prêt <span class="unit">client particulier</span></label><select id="loan" data-store="dos"><option value="none" selected>Pas de prêt (mention manuscrite)</option><option value="loan">Prêt (condition suspensive)</option></select></div>
+            <div class="f"><label for="loanMonths">Durée de la condition suspensive <span class="unit">mois, 1 minimum</span></label><input id="loanMonths" class="num-in" inputmode="numeric" data-store="dos" value="2"></div>
+            <div class="f"><label for="loanDetail">Prêt : organisme ou montant <span class="unit">facultatif</span></label><input id="loanDetail" data-store="dos"></div>
+            <div class="spanall checks"><label><input type="checkbox" id="suiviConf" data-store="dos"> Conception sans direction des travaux : confier aussi le suivi de la conformité architecturale (avis sur les études d’exécution, rémunéré au temps passé).</label></div>
+            <div class="f"><label for="execDays">Délai d’exécution par élément de mission <span class="unit">jours</span></label><input id="execDays" class="num-in" inputmode="numeric" data-store="cab" value="20"></div>
+            <div class="f"><label for="resilPct">Indemnité de résiliation sans faute <span class="unit">% des honoraires restants</span></label><input id="resilPct" class="num-in" inputmode="decimal" data-store="cab" value="20"></div>
+            <div class="f"><label for="penalty">Pénalité de retard de l’architecte <span class="unit">€ TTC / semaine, vide = aucune</span></label><input id="penalty" class="num-in" inputmode="decimal" data-store="cab" value=""></div>
+            <div class="f"><label for="penaltyCap">Plafond des pénalités <span class="unit">% de l’élément</span></label><input id="penaltyCap" class="num-in" inputmode="decimal" data-store="cab" value="1"></div>
+            <div class="f"><label for="deliverFormat">Format des livrables</label><input id="deliverFormat" data-store="cab" value="PDF"></div>
+            <div class="f"><label for="copies">Exemplaires remis</label><input id="copies" class="num-in" inputmode="numeric" data-store="cab" value="1"></div>
+            <div class="f"><label for="startDelay">Démarrage de la mission</label><input id="startDelay" data-store="cab" value="à réception du contrat signé et des documents nécessaires"></div>
+            <div class="f"><label for="duration">Calendrier indicatif</label><input id="duration" data-store="cab" value="défini d’un commun accord selon l’importance de l’opération"></div>
+            <div class="f"><label for="paymentDays">Délai de paiement des factures <span class="unit">jours</span></label><input id="paymentDays" class="num-in" inputmode="numeric" data-store="cab" value="15"></div>
+            <div class="f"><label for="validityDays">Validité de la proposition <span class="unit">jours</span></label><input id="validityDays" class="num-in" inputmode="numeric" data-store="cab" value="30"></div>
+            <div class="f"><label for="noticePeriod">Délai de mise en demeure <span class="unit">jours</span></label><input id="noticePeriod" class="num-in" inputmode="numeric" data-store="cab" value="15"></div>
+            <div class="f"><label for="clientRate">Taux horaire client <span class="unit">€ HT/h, formule au temps passé</span></label><input id="clientRate" class="num-in" inputmode="decimal" data-store="cab" value="115"></div>
+            <div class="f"><label for="overrunPct">Dépassement sans nouvel accord écrit <span class="unit">% de l’estimation</span></label><input id="overrunPct" class="num-in" inputmode="decimal" data-store="cab" value="10"></div>
+            <div class="f"><label for="validationDays">Délai de validation des étapes <span class="unit">jours</span></label><input id="validationDays" class="num-in" inputmode="numeric" data-store="cab" value="15"></div>
+            <div class="f"><label for="signPlace">Lieu de signature</label><input id="signPlace" data-store="cab" value="Foce"></div>
+            <div class="f spanall"><label for="revisionTerms">Révision du forfait</label><input id="revisionTerms" data-store="cab" value="Le forfait est ferme et non révisable pendant la durée prévisionnelle de la mission."></div>
+            <div class="f"><label for="expensesTerms">Frais et débours</label><input id="expensesTerms" data-store="cab" value="Les frais de reprographie, de dépôt et les débours exceptionnels sont refacturés à l’euro près sur justificatifs, après accord préalable du client."></div>
+          </div>
+
+          <h3>Échéancier</h3>
+          <div class="grid">
+            <div class="f"><label for="scheduleMode">Mode</label>
+              <select id="scheduleMode" data-store="cab"><option value="auto" selected>Automatique, par étapes de mission</option><option value="manual">Manuel, en pourcentages</option></select></div>
+            <div class="f" id="acompteWrap"><label for="acompte">Acompte à la signature <span class="unit">% de la première phase</span></label><input id="acompte" class="num-in" inputmode="decimal" data-store="cab" value="15"></div>
+          </div>
+          <div class="grid g4" id="manualWrap" style="margin-top:12px">
+            <div class="f span3"><label for="m1l">Échéance 1</label><input id="m1l" data-store="cab" value="Acompte à la signature"></div><div class="f"><label for="m1p">%</label><input id="m1p" class="num-in" inputmode="decimal" data-store="cab" value="20"></div>
+            <div class="f span3"><label for="m2l">Échéance 2</label><input id="m2l" data-store="cab" value="Validation de l’avant-projet"></div><div class="f"><label for="m2p">%</label><input id="m2p" class="num-in" inputmode="decimal" data-store="cab" value="40"></div>
+            <div class="f span3"><label for="m3l">Échéance 3</label><input id="m3l" data-store="cab" value="Dépôt de la demande d’autorisation"></div><div class="f"><label for="m3p">%</label><input id="m3p" class="num-in" inputmode="decimal" data-store="cab" value="40"></div>
+            <div class="f span3"><label for="m4l">Échéance 4</label><input id="m4l" data-store="cab" value=""></div><div class="f"><label for="m4p">%</label><input id="m4p" class="num-in" inputmode="decimal" data-store="cab" value="0"></div>
+          </div>
+
+          <h3>Clauses</h3>
+          <div class="checks">
+            <label><input type="checkbox" id="cl1" data-store="cab" checked> Le client fournit les documents, relevés, diagnostics et informations nécessaires à la mission.</label>
+            <label><input type="checkbox" id="cl2" data-store="cab" checked> L’obtention des autorisations d’urbanisme relève de l’administration et ne peut être garantie.</label>
+            <label><input type="checkbox" id="cl3" data-store="cab" checked> L’enveloppe travaux est une référence prévisionnelle, non un engagement de prix.</label>
+            <label><input type="checkbox" id="cl4" data-store="cab" checked> Toute modification du programme ou des missions fait l’objet d’un avenant écrit préalable.</label>
+            <label><input type="checkbox" id="cl5" data-store="cab" checked> Propriété intellectuelle de l’architecte et usage des documents limité à l’opération.</label>
+            <label><input type="checkbox" id="cl6" data-store="cab" checked> Le suivi de chantier ne se substitue pas aux obligations propres des entreprises.</label>
+            <label><input type="checkbox" id="cl7" data-store="cab" checked> Géomètre, bureaux d’études, contrôle, diagnostics et autres tiers exclus sauf mention contraire.</label>
+            <label><input type="checkbox" id="cl8" data-store="cab" checked> Suspension possible en cas de manquement grave ou de non-paiement après mise en demeure.</label>
+            <label><input type="checkbox" id="showWorks" data-store="cab" checked> Mentionner l’enveloppe travaux dans la convention.</label>
+            <label><input type="checkbox" id="showRate" data-store="cab"> Indiquer le taux horaire applicable aux prestations supplémentaires (forfait).</label>
+          </div>
+          <div class="f" style="margin-top:16px"><label for="specialTerms">Conditions particulières de ce dossier</label><textarea id="specialTerms" data-store="dos" placeholder="Exclusions, hypothèses, précisions propres au projet"></textarea></div>
+        </div>
+      </details>
+
+      <details class="acc private" id="accInvoices">
+        <summary><h2>Facturation</h2><span>factures et avoirs</span></summary>
+        <div class="inner">
+          <p class="note" id="invNotice"></p>
+          <h3>Nouvelle facture pour ce dossier</h3>
+          <div class="grid">
+            <div class="f spanall"><label for="invSource">Échéance facturée</label><select id="invSource"></select></div>
+            <div class="f spanall"><label for="invLabel">Libellé</label><input id="invLabel" autocomplete="off"></div>
+            <div class="f"><label for="invAmount">Montant <span class="unit">€ HT</span></label><input id="invAmount" class="num-in" inputmode="decimal" autocomplete="off"></div>
+            <div class="f"><label for="invDate">Date d’émission</label><input id="invDate" type="date"></div>
+            <div class="f" id="invHoursWrap" hidden><label for="invHours">Heures réellement passées</label><input id="invHours" class="num-in" inputmode="decimal" autocomplete="off"></div>
+            <div class="f spanall"><label for="invService">Période ou date de la prestation <span class="unit">facultatif</span></label><input id="invService" autocomplete="off" placeholder="Ex. : esquisse remise le 12 octobre 2026"></div>
+          </div>
+          <div class="status" id="invCheck"></div>
+          <div class="presets"><button type="button" class="btn solid" id="invIssue">Émettre la facture</button><button type="button" class="btn ghost" id="invCsv">Exporter en CSV</button></div>
+          <h3>Pièces émises</h3>
+          <div id="invList" class="inv-list"></div>
+        </div>
+      </details>
+
+      <details class="acc private" id="accDossiers">
+        <summary><h2>Dossiers et sauvegarde</h2><span>historique sur cet appareil</span></summary>
+        <div class="inner">
+          <div class="presets" style="margin-top:0"><button type="button" class="btn" id="dosSave">Enregistrer ce dossier dans l’historique</button></div>
+          <div id="dosList" class="inv-list"></div>
+          <h3>Sauvegarde complète</h3>
+          <p class="lead" style="margin-top:0">Paramètres, dossier en cours, historique et factures, dans un fichier JSON à conserver (iCloud, e-mail).</p>
+          <div class="presets" style="margin-top:0"><button type="button" class="btn" id="bkExport">Exporter une sauvegarde</button><label class="btn ghost imp-file">Restaurer une sauvegarde<input type="file" id="bkImport" accept="application/json,.json"></label></div>
+        </div>
+      </details>
+
+      <details class="acc pilot" id="accPilot">
+        <summary><h2>Pilotage interne</h2><span>jamais transmis au client</span></summary>
+        <div class="inner">
+          <div class="grid g3">
+            <div class="f"><label for="pricingMode">Méthode retenue par phase</label>
+              <select id="pricingMode" data-store="cab">
+                <option value="percent" selected>% des travaux (recommandé)</option>
+                <option value="auto">Le plus élevé entre temps et %</option>
+                <option value="time">Temps uniquement</option>
+              </select></div>
+            <div class="f"><label for="rate">Taux horaire interne <span class="unit">€ HT/h</span></label><input id="rate" class="num-in" inputmode="decimal" data-store="cab" value="115"></div>
+            <div class="f"><label for="priceStep">Arrondi des honoraires</label>
+              <select id="priceStep" data-store="cab"><option value="1">à l’euro</option><option value="10">10 €</option><option value="50" selected>50 €</option><option value="100">100 €</option></select></div>
+            <div class="f"><label for="rounding">Pas horaire</label>
+              <select id="rounding" data-store="cab"><option value="0.25" selected>15 min</option><option value="0.5">30 min</option><option value="1">1 h</option></select></div>
+            <div class="f"><label for="degress">Dégressivité au-delà de 100 m² <span class="unit">exposant, 1 = aucune</span></label><input id="degress" class="num-in" inputmode="decimal" data-store="cab" value="0.75"></div>
+            <div class="f"><label for="coefPc">Coef. conception</label><input id="coefPc" class="num-in" inputmode="decimal" data-store="cab" value="1"></div>
+            <div class="f"><label for="coefSite">Coef. exécution</label><input id="coefSite" class="num-in" inputmode="decimal" data-store="cab" value="1"></div>
+            <div class="f"><label for="coefInt">Coef. intérieur</label><input id="coefInt" class="num-in" inputmode="decimal" data-store="cab" value="1"></div>
+            <div class="f"><label for="hoursScale">Coef. global du temps estimé <span class="unit">1 = barème V7.6</span></label><input id="hoursScale" class="num-in" inputmode="decimal" data-store="cab" value="0.7"></div>
+          </div>
+          <h3>Minimum facturable</h3>
+          <div class="grid g3">
+            <div class="f"><label for="minFee">Minimum par mission <span class="unit">€ HT</span></label><input id="minFee" class="num-in" inputmode="decimal" data-store="cab" value="2500"></div>
+          </div>
+          <h3>Budget travaux estimé au m²</h3>
+          <div class="grid g3">
+            <div class="f"><label for="priceNeuf">Neuf / extension <span class="unit">€ HT/m²</span></label><input id="priceNeuf" class="num-in" inputmode="decimal" data-store="cab" value="2800"></div>
+            <div class="f"><label for="priceReno">Rénovation <span class="unit">€ HT/m²</span></label><input id="priceReno" class="num-in" inputmode="decimal" data-store="cab" value="750"></div>
+          </div>
+          <div class="checks" style="margin-top:10px"><label><input type="checkbox" id="worksFloor" data-store="cab"> Utiliser l’estimation au m² comme plancher du budget saisi (fonctionnement des versions précédentes)</label></div>
+          <h3>Honoraires en % des travaux</h3>
+          <div class="grid g3">
+            <div class="f"><label for="pcMax">Conception, jusqu’au seuil <span class="unit">%</span></label><input id="pcMax" class="num-in" inputmode="decimal" data-store="cab" value="4.25"></div>
+            <div class="f"><label for="pcMin">Conception, plancher <span class="unit">%</span></label><input id="pcMin" class="num-in" inputmode="decimal" data-store="cab" value="2.75"></div>
+            <div class="f"><label for="degStart">Début de la dégressivité <span class="unit">€ HT</span></label><input id="degStart" class="num-in" inputmode="decimal" data-store="cab" value="400000"></div>
+            <div class="f"><label for="siteMax">Chantier, jusqu’au seuil <span class="unit">%</span></label><input id="siteMax" class="num-in" inputmode="decimal" data-store="cab" value="8.5"></div>
+            <div class="f"><label for="siteMin">Chantier, plancher <span class="unit">%</span></label><input id="siteMin" class="num-in" inputmode="decimal" data-store="cab" value="6.25"></div>
+            <div class="f"><label for="degEnd">Plancher atteint à <span class="unit">€ HT</span></label><input id="degEnd" class="num-in" inputmode="decimal" data-store="cab" value="2000000"></div>
+          </div>
+          <p class="note">Budget retenu = le budget saisi ; à défaut, l’estimation (m² neuf × prix neuf + m² rénovation × prix rénovation). Si la case ci-dessus est cochée, le plus élevé des deux. Taux pleins jusqu’au début de la dégressivité, puis baisse progressive et continue jusqu’au plancher. Phase partielle : % au prorata du poids des missions cochées (conception : faisabilité 6, urbanisme 4, ESQ 20, APS 20, APD 25, PC 25, DP 15, relevé 5, diagnostic 4 ; chantier : PRO 15, DCE 12, ACT 6, VISA 5, DET 55, AOR 7). Le temps estimé sert de contrôle de rentabilité ; l’architecture intérieure reste chiffrée au temps.</p>
+          <h3>Déblocage général (mode manuel)</h3>
+          <div class="grid g3">
+            <div class="f"><label for="manPin">Code du verrou <span class="unit">facultatif</span></label><input id="manPin" type="password" inputmode="numeric" autocomplete="off" data-store="cab" placeholder="Aucun : double confirmation"></div>
+          </div>
+          <p class="note">Le verrou évite une modification involontaire ou sous les yeux d’un client ; ce n’est pas une protection informatique. Le mode manuel se règle dans la synthèse (colonne de droite), dossier par dossier.</p>
+          <div style="margin-top:18px"><button type="button" class="btn ghost" id="resetAll">Restaurer tous les réglages par défaut</button></div>
+        </div>
+      </details>
+    </main>
+
+    <aside>
+      <div class="sum">
+        <div class="f" style="margin-bottom:14px"><label for="billing">Formule proposée au client</label>
+          <select id="billing" data-store="dos"><option value="forfait" selected>Au forfait</option><option value="temps">Au temps passé (heures indicatives)</option></select></div>
+        <div class="k" id="sumLabel">Honoraires HT</div>
+        <div class="ht" id="totalHT">0 €</div>
+        <div class="ht-sub" id="summaryClient">Client non renseigné</div>
+        <table>
+          <tr id="sumInsRow" hidden><td>Assurance HT</td><td class="r" id="sumIns">0 €</td></tr>
+          <tr><td id="vatLabel">TVA 20 %</td><td class="r" id="sumTVA">0 €</td></tr>
+          <tr><td><b>Total TTC</b></td><td class="r"><b id="sumTTC">0 €</b></td></tr>
+        </table>
+        <div class="actions">
+          <div class="emit" role="group" aria-label="Document à émettre">
+            <button type="button" class="btn solid" id="pdfBtn" data-mode="proposal">Proposition d’honoraires<small>1 page, sans contrat</small></button>
+            <button type="button" class="btn solid" id="ctrBtn" data-mode="full">Contrat d’architecte<small>proposition + contrat complet</small></button>
+          </div>
+          <button type="button" class="btn" id="importBtn">Importer un questionnaire</button>
+          <button type="button" class="btn" id="ordreBtn">Contrat de l’Ordre (PDF)</button>
+          <input type="file" id="ordreFile" accept="application/pdf,.pdf" hidden>
+          <button type="button" class="btn" id="newBtn">Nouveau dossier</button>
+        </div>
+        <div class="int-block" id="internalBlock"></div>
+        <div class="int-block arb" id="arbBlock"></div>
+        <div class="int-block man" id="manBlock"></div>
+        <input type="hidden" id="manualData" data-store="dos" value=""><input type="hidden" id="rateOverride" data-store="dos" value=""><input type="hidden" id="pctPc" data-store="dos" value=""><input type="hidden" id="pctSite" data-store="dos" value="">
+        <div class="status" id="legalStatus"></div>
+        <div class="err" id="errBox"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="bar" id="bar">
+  <div><div class="l">Honoraires HT</div><div class="v" id="barHT">0 €</div></div>
+  <div class="bar-emit"><button type="button" class="btn" id="pdfBtn2" data-mode="proposal">Proposition</button><button type="button" class="btn solid" id="ctrBtn2" data-mode="full">Contrat</button></div>
+</div>
+
+<div id="importDlg" role="dialog" aria-modal="true" aria-labelledby="impTitle">
+  <div class="imp-box">
+    <div class="imp-head"><h2 id="impTitle">Importer un questionnaire</h2><button type="button" class="btn ghost" id="impClose">Fermer</button></div>
+    <p class="imp-lead">Le QR code figure dans l’email reçu pour chaque questionnaire rempli sur le site.</p>
+    <button type="button" class="btn solid imp-wide" id="impScan">Scanner le QR code</button>
+    <div id="impVideoWrap" hidden><video id="impVideo" playsinline muted></video><span class="imp-frame" aria-hidden="true"></span></div>
+    <label class="btn imp-wide imp-file">Choisir une photo ou une capture du QR code<input type="file" id="impFile" accept="image/*"></label>
+    <div class="f" style="margin-top:18px"><label for="impCode">Ou collez le code reçu par email</label><textarea id="impCode" rows="3" placeholder="STATERA1.…" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea></div>
+    <button type="button" class="btn imp-wide" id="impGo" style="margin-top:10px">Importer ce code</button>
+    <p class="imp-msg" id="impMsg" role="status" aria-live="polite"></p>
+  </div>
+</div>
+<div id="flash" role="status" aria-live="polite"></div>
+
+<div id="preview" aria-modal="true" role="dialog">
+  <div class="ptools">
+    <button type="button" class="btn ghost" id="closePreview">Fermer</button>
+    <select id="docMode" aria-label="Document à imprimer">
+      <option value="proposal">Proposition d’honoraires (1 page)</option>
+      <option value="full">Contrat d’architecte (proposition + contrat)</option>
+    </select>
+    <button type="button" class="btn solid" id="printBtn">Imprimer / PDF</button>
+    <div class="msg" id="previewMsg"></div>
+  </div>
+  <div id="doc"></div>
+</div>
+
+<script src="engine.js"></script>
+<script src="contract.js"></script>
+<script src="invoice.js"></script>
+<script src="cnoa-import.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

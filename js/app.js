@@ -6,6 +6,7 @@ import { setLots, LOTS_VERSION } from './data.js';
 import { handleRedirect } from './gdrive.js';
 
 const NAV = [
+  { id: 'demandes', href: '#/demandes', label: 'Demandes', icon: 'mail' },
   { id: 'projets', href: '#/projets', label: 'Projets', icon: 'projets' },
   { id: 'entreprises', href: '#/entreprises', label: 'Entreprises', icon: 'entreprises' },
   { id: 'reglages', href: '#/reglages', label: 'Réglages', icon: 'reglages' }
@@ -40,6 +41,8 @@ async function route() {
       else if (tab === 'plans' && parts[3]) { mod = await import('./views/viewer.js'); params.planId = parts[3]; cleanup = await mod.renderViewer(view, params); }
       else { mod = await import('./views/project.js'); cleanup = await mod.render(view, params); }
       remember(parts[1]);
+    } else if (parts[0] === 'demandes') {
+      mod = await import('./views/demandes.js'); params.id = parts[1]; cleanup = await mod.render(view, params);
     } else if (parts[0] === 'entreprises') {
       mod = await import('./views/entreprises.js'); params.id = parts[1]; cleanup = await mod.render(view, params);
     } else if (parts[0] === 'reglages') {

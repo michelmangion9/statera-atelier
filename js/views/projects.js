@@ -86,7 +86,7 @@ export async function render(view) {
   }
 }
 
-export async function newProject() {
+export async function newProject(pre = {}, onCreated) {
   if (!gd.available() || !gd.token()) {
     if (gd.available()) { if (await confirmBox('La création d’un projet se fait dans ton Google Drive. Te connecter maintenant ?', 'Connecter')) gd.signIn('#/projets'); }
     else toast('Création des projets sur la version en ligne (Drive)');
@@ -96,9 +96,9 @@ export async function newProject() {
   try { code = await gd.nextCode(new Date().getFullYear()); } catch (e) { toast(e.message); return; }
   const f = {
     code: h('input', { class: 'input', value: code }),
-    client: h('input', { class: 'input', placeholder: 'ex. Manon Ortoli' }),
-    commune: h('input', { class: 'input', placeholder: 'ex. Olmiccia' }),
-    nom: h('input', { class: 'input', placeholder: 'ex. Maison individuelle' }),
+    client: h('input', { class: 'input', placeholder: 'ex. Manon Ortoli', value: pre.client || '' }),
+    commune: h('input', { class: 'input', placeholder: 'ex. Olmiccia', value: pre.commune || '' }),
+    nom: h('input', { class: 'input', placeholder: 'ex. Maison individuelle', value: pre.nom || '' }),
     type: h('select', { class: 'select' }, PROJECT_TYPES.map((t) => h('option', null, t))),
     phase: h('select', { class: 'select' }, PHASES.filter((p) => p.id !== 'CLOS').map((p) => h('option', { value: p.id, selected: p.id === 'ESQ' || null }, p.court + ' · ' + p.nom)))
   };
@@ -122,11 +122,12 @@ export async function newProject() {
     if (!/^\d{4}-\d{3}$/.test(f.code.value.trim())) { toast('N° d’affaire au format AAAA-NNN'); return; }
     if (!f.client.value.trim()) { toast('Indique le client'); f.client.focus(); return; }
     if (!f.commune.value.trim()) { toast('Indique la commune'); f.commune.focus(); return; }
-    const p = { id: uid(), code: f.code.value.trim(), nom: f.nom.value.trim() || (f.type.value + ' · ' + f.commune.value.trim()), client: f.client.value.trim(), commune: f.commune.value.trim(), type: f.type.value, phase: f.phase.value, assignments: [], ouverture: new Date().toLocaleDateString('fr-FR'), createdAt: new Date().toISOString() };
+    const p = { id: uid(), code: f.code.value.trim(), nom: f.nom.value.trim() || (f.type.value + ' · ' + f.commune.value.trim()), client: f.client.value.trim(), commune: f.commune.value.trim(), type: f.type.value, phase: f.phase.value, assignments: [], ouverture: new Date().toLocaleDateString('fr-FR'), createdAt: new Date().toISOString(), ...(pre.extra || {}) };
     go.disabled = true; go.textContent = 'Création…';
     try {
       await gd.createProjectFolder(p, (name) => { progress.textContent = 'Création : ' + name; });
       s.close(); toast('Dossier créé dans ton Drive : ' + p.drive.name);
+      if (onCreated) await onCreated(p);
       location.hash = '#/p/' + p.id;
     } catch (e) { go.disabled = false; go.textContent = 'Créer le dossier'; progress.textContent = e.message; toast(e.message); }
   }
