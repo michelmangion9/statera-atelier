@@ -139,7 +139,7 @@ function driveView(body, p, seg) {
   const br = gd.browser(p, { actions: (f, pdfOrImg) => h('div', { class: 'actions', style: { flexShrink: 0 } },
     pdfOrImg ? h('button', { class: 'btn btn-sm btn-line', onclick: async () => {
       toast('Téléchargement…');
-      try { const file = await gd.download(f); const { importPlanBlobs } = await import('./plans.js'); const c = await importPlanBlobs(p, [file]); if (c.length) { c[0].driveId = f.id; await db.put('plans', c[0]); location.hash = '#/p/' + p.id + '/plans/' + c[0].id; } } catch (e) { toast(e.message); }
+      try { const file = await gd.download(f); const { importPlanBlobs } = await import('./plans.js'); const c = await importPlanBlobs(p, [file]); if (c.length) location.hash = '#/p/' + p.id + '/plans' + (c.length === 1 ? '/' + c[0].id : ''); } catch (e) { toast(e.message); }
     } }, icon('plan', 16), 'Plan') : null,
     h('button', { class: 'btn btn-sm btn-ghost btn-icon', 'aria-label': 'Garder une copie sur l’appareil', title: 'Copie hors ligne', onclick: async () => {
       try { const file = await gd.download(f); const blob = new Blob([await file.arrayBuffer()], { type: file.type }); await db.put('files', { id: uid(), projectId: p.id, ...destFor('entrant', p), name: file.name, mime: blob.type, size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'drive', driveId: f.id }); toast('Copie gardée sur l’appareil'); } catch (e) { toast(e.message); }

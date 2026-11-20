@@ -423,9 +423,13 @@ export async function renderViewer(view, params) {
     const { exportAnnotatedPlan } = await import('../pdfkit.js');
     const blob = await exportAnnotatedPlan({ plan, pages: pagesMap, points: points.filter((x) => x.planId === plan.id) });
     const ph = phase(plan.phase || p.phase);
-    const name = fileName({ date: todayISO(), code: fileCode(p), phase: ph.id, type: 'PLN', objet: plan.nom + ' annote', ind: plan.indice || 'A', ext: 'pdf' });
-    await db.put('files', { id: uid(), projectId: p.id, ...destFor('emis', p, ph.id), name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'plan' });
-    { const d = destFor('emis', p, ph.id); toast('Rangé dans ' + d.folder + ' › ' + d.sub); }
+    // Copie annotée : « <nom d'origine>_NOTE_AAMMJJ.pdf », à côté du PDF d'origine dans le Drive (qui n'est jamais modifié)
+    const d0 = new Date(), stamp = String(d0.getFullYear()).slice(2) + String(d0.getMonth() + 1).padStart(2, '0') + String(d0.getDate()).padStart(2, '0');
+    const stem = (plan.fileName || '').replace(/\.[^.]+$/, '');
+    const name = stem ? stem + (plan.pageLabel ? '_' + plan.pageLabel.replace(/[^A-Za-z0-9]+/g, '-').toUpperCase() : (plan.srcPages && plan.srcPages.length === 1 ? '_P' + (plan.srcPages[0] + 1) : '')) + '_NOTE_' + stamp + '.pdf'
+      : fileName({ date: todayISO(), code: fileCode(p), phase: ph.id, type: 'PLN', objet: plan.nom + ' note', ind: plan.indice || 'A', ext: 'pdf' });
+    await db.put('files', { id: uid(), projectId: p.id, ...destFor('emis', p, ph.id), driveParent: plan.drive && plan.drive.parent, name, mime: 'application/pdf', size: blob.size, blob, phase: ph.id, createdAt: new Date().toISOString(), source: 'plan' });
+    toast(plan.drive && plan.drive.parent ? 'Copie annotée ajoutée à côté du PDF d’origine dans le Drive' : 'Rangé dans ' + destFor('emis', p, ph.id).folder + ' › ' + destFor('emis', p, ph.id).sub);
     await shareOrDownload(blob, name, plan.nom + ' · ' + p.nom);
   }
 

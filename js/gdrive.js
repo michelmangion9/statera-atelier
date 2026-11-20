@@ -75,7 +75,7 @@ export async function whoami() {
 export async function list(folderId) {
   let out = [], pageToken = '';
   do {
-    const j = await api('/files?' + qs({ q: "'" + esc(folderId) + "' in parents and trashed=false", fields: 'nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,iconLink,thumbnailLink)', orderBy: 'folder,name', pageSize: 200, supportsAllDrives: true, includeItemsFromAllDrives: true, pageToken }));
+    const j = await api('/files?' + qs({ q: "'" + esc(folderId) + "' in parents and trashed=false", fields: 'nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,iconLink,thumbnailLink,parents)', orderBy: 'folder,name', pageSize: 200, supportsAllDrives: true, includeItemsFromAllDrives: true, pageToken }));
     out = out.concat(j.files || []); pageToken = j.nextPageToken || '';
   } while (pageToken);
   return out;
@@ -95,13 +95,31 @@ async function child(parentId, name, create) {
 }
 
 export async function download(f) {
+  let out;
   if (/^application\/vnd\.google-apps\./.test(f.mimeType)) {
     const r = await api('/files/' + f.id + '/export?mimeType=application%2Fpdf', {}, true);
-    return new File([await r.blob()], f.name + '.pdf', { type: 'application/pdf' });
+    out = new File([await r.blob()], f.name + '.pdf', { type: 'application/pdf' });
+  } else {
+    const r = await api('/files/' + f.id + '?alt=media&supportsAllDrives=true', {}, true);
+    const b = await r.blob();
+    out = new File([b], f.name, { type: f.mimeType || b.type });
   }
-  const r = await api('/files/' + f.id + '?alt=media&supportsAllDrives=true', {}, true);
-  const b = await r.blob();
-  return new File([b], f.name, { type: f.mimeType || b.type });
+  out._drive = { id: f.id, name: f.name, parent: f.parents && f.parents[0], path: f._path || '' };
+  return out;
+}
+// Tous les PDF et images du dossier projet (sous-dossiers compris)
+export async function allPlans(rootId, onFolder) {
+  const out = [], queue = [{ id: rootId, path: '' }];
+  let n = 0;
+  while (queue.length && n < 300) {
+    const cur = queue.shift(); n++;
+    onFolder && onFolder(cur.path);
+    for (const it of await list(cur.id)) {
+      if (isFolder(it)) { if (it.name !== '99_ARCHIVES') queue.push({ id: it.id, path: (cur.path ? cur.path + ' › ' : '') + it.name }); }
+      else if (/pdf|^image\//.test(it.mimeType)) out.push(Object.assign(it, { _path: cur.path }));
+    }
+  }
+  return out.sort((a, b) => (b.modifiedTime || '').localeCompare(a.modifiedTime || ''));
 }
 
 export async function upload(parentId, blob, name, existingId) {
@@ -208,17 +226,13 @@ export async function pushFile(p, rec) {
   if (!token() || !p.drive || !p.drive.id || !rec.blob || syncing.has(rec.id)) return false;
   syncing.add(rec.id);
   try {
-    const parent = await folderFor(p, rec.folder, rec.sub || '');
-    // Règle : l'Atelier ne supprime ni ne déplace jamais rien dans le Drive.
-    // Si un document du même nom existe, une copie de l'ancienne version part dans 99_ARCHIVES,
-    // puis le fichier reçoit la nouvelle version (Google garde aussi l'historique des versions).
-    const prev = await findFile(parent, rec.name);
-    if (prev) {
-      const arch = await folderFor(p, '99_ARCHIVES', '');
-      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
-      await api('/files/' + prev.id + '/copy?supportsAllDrives=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: rec.name.replace(/(\.[^.]+)$/, '_remplace' + stamp + '$1'), parents: [arch] }) });
-    }
-    const r = await upload(parent, rec.blob, rec.name, prev && prev.id);
+    const parent = rec.driveParent || await folderFor(p, rec.folder, rec.sub || '');
+    // Règle : l'Atelier ne supprime, ne déplace ni n'écrase jamais un fichier du Drive.
+    // Si le nom est déjà pris, le nouveau document est ajouté en copie : …_2, …_3
+    let name = rec.name, k = 2;
+    while (await findFile(parent, name)) name = rec.name.replace(/(\.[^.]+)?$/, (ext) => '_' + (k++) + (ext || ''));
+    const r = await upload(parent, rec.blob, name);
+    rec.driveName = name;
     rec.driveId = r.id; rec.driveLink = r.webViewLink; rec.driveAt = new Date().toISOString();
     await db.put('files', rec);
     return true;
@@ -310,9 +324,26 @@ export function browser(p, { startId, startName, pick, onPick, actions } = {}) {
 export function pickFromDrive(p, title = 'Choisir un plan dans le Drive') {
   return new Promise((res) => {
     let done = false;
-    const s = sheet({ title, wide: true, body: [browser(p, { pick: true, onPick: async (f) => {
+    const choose = async (f) => {
       done = true; s.close(); toast('Téléchargement de « ' + f.name + ' »…');
       try { res(await download(f)); } catch (e) { toast(e.message); res(null); }
-    } })], onClose: () => { if (!done) res(null); } });
+    };
+    const body = h('div');
+    const showAll = async () => {
+      put(clear(body), h('div', { class: 'small muted' }, 'Recherche des PDF du projet…'));
+      try {
+        const files = await allPlans(p.drive.id, (path) => { body.firstChild.textContent = 'Recherche… ' + (path || p.drive.name); });
+        put(clear(body), files.length ? h('div', { class: 'list' }, files.map((f) => h('button', { class: 'row', onclick: () => choose(f) },
+          icon(/pdf/.test(f.mimeType) ? 'file' : 'camera', 20),
+          h('span', { class: 'row-main' }, h('span', { class: 'row-t fname' }, f.name), h('span', { class: 'row-s' }, [f._path, fmtShort(f.modifiedTime), f.size ? fmtSize(Number(f.size)) : null].filter(Boolean).join(' · '))),
+          h('span', { class: 'btn btn-sm btn-primary' }, 'Choisir')))) : h('div', { class: 'empty' }, 'Aucun PDF dans le dossier du projet.'));
+      } catch (e) { put(clear(body), h('div', { class: 'alert' }, e.message)); }
+    };
+    const showBrowse = () => put(clear(body), browser(p, { pick: true, onPick: choose }));
+    const seg = h('div', { class: 'seg mb', role: 'group' },
+      h('button', { 'aria-pressed': 'true', onclick: (e) => { e.currentTarget.setAttribute('aria-pressed', 'true'); e.currentTarget.nextSibling.setAttribute('aria-pressed', 'false'); showAll(); } }, 'Tous les PDF du projet'),
+      h('button', { 'aria-pressed': 'false', onclick: (e) => { e.currentTarget.setAttribute('aria-pressed', 'true'); e.currentTarget.previousSibling.setAttribute('aria-pressed', 'false'); showBrowse(); } }, 'Parcourir les dossiers'));
+    const s = sheet({ title, wide: true, body: [seg, body], onClose: () => { if (!done) res(null); } });
+    showAll();
   });
 }

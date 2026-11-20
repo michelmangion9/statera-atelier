@@ -365,3 +365,13 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .sk-full-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .sk-full-stage .sketch-wrap { aspect-ratio: auto; box-shadow: 0 1px 0 var(--rule); }
 .sk-full-hint { text-align: center; }
+
+/* Choix des pages d'un PDF */
+.page-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-top: 12px; }
+.pp-cell { display: flex; flex-direction: column; gap: 4px; padding: 6px; background: #fff; border: 1px solid var(--rule); text-align: left; cursor: pointer; position: relative; font: inherit; color: var(--stone); }
+.pp-cell[aria-pressed="true"] { border: 2px solid var(--stone); padding: 5px; }
+.pp-cell[aria-pressed="true"]::after { content: '✓'; position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; background: var(--stone); color: var(--chaux); font-size: 13px; display: grid; place-items: center; }
+.pp-img { aspect-ratio: 1.414; display: grid; place-items: center; background: #fff; overflow: hidden; }
+.pp-canvas { width: 100%; height: 100%; object-fit: contain; }
+.pp-n { font-weight: 500; font-size: 14px; }
+.pp-t { display: block; min-height: 1.2em; }

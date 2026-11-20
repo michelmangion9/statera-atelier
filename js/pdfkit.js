@@ -16,12 +16,18 @@ export function pdfjs() {
   return pdfjsP;
 }
 const docCache = new Map();
+// Les plans issus d'un même PDF partagent son fichier (stocké une seule fois, sur le premier plan)
+export async function planBlob(plan) {
+  if (plan.blob) return plan.blob;
+  if (plan.blobOf) { const { db } = await import('./db.js'); const src = await db.get('plans', plan.blobOf); if (src && src.blob) return src.blob; }
+  throw new Error('Fichier du plan introuvable sur cet appareil');
+}
 export async function openPdf(plan) {
-  const k = plan.id + ':' + (plan.blob ? plan.blob.size : 0);
+  const k = (plan.blobOf || plan.id) + ':' + (plan.size || (plan.blob ? plan.blob.size : 0));
   if (!docCache.has(k)) {
     docCache.set(k, (async () => {
       const lib = await pdfjs();
-      const data = new Uint8Array(await plan.blob.arrayBuffer());
+      const data = new Uint8Array(await (await planBlob(plan)).arrayBuffer());
       return lib.getDocument({ data, isEvalSupported: false }).promise;
     })());
   }
@@ -30,7 +36,8 @@ export async function openPdf(plan) {
 // Rend une page en canvas d'une largeur donnée (px). Renvoie aussi la taille en points.
 export async function renderPdfPage(plan, pageIndex, widthPx) {
   const pdf = await openPdf(plan);
-  const page = await pdf.getPage(pageIndex + 1);
+  const phys = plan.srcPages && plan.srcPages.length ? plan.srcPages[pageIndex] ?? pageIndex : pageIndex;
+  const page = await pdf.getPage(phys + 1);
   const vp1 = page.getViewport({ scale: 1 });
   const scale = widthPx / vp1.width;
   const vp = page.getViewport({ scale });
@@ -41,6 +48,22 @@ export async function renderPdfPage(plan, pageIndex, widthPx) {
   await page.render({ canvasContext: ctx, viewport: vp }).promise;
   return { canvas: c, w: vp1.width, h: vp1.height };
 }
+// Titre probable d'une page (cartouche) : « Plan RDC », « Coupe AA », « Façade sud »…
+export async function pageTitle(plan, physIndex) {
+  try {
+    const pdf = await openPdf(plan);
+    const page = await pdf.getPage(physIndex + 1);
+    const tc = await page.getTextContent();
+    const items = tc.items.map((it) => ({ t: (it.str || '').trim(), h: Math.abs(it.transform ? it.transform[3] : 0) })).filter((x) => x.t.length > 2 && x.t.length < 60);
+    const re = /^(plan|coupe|fa[cç]ade|[ée]l[ée]vation|vue|insertion|sch[ée]ma|masse|toiture|perspective|d[ée]tail|situation|notice)\b/i;
+    const hit = items.filter((x) => re.test(x.t)).sort((a, b) => b.h - a.h)[0];
+    return hit ? hit.t.replace(/\s+/g, ' ') : '';
+  } catch (e) { return ''; }
+}
+export async function pageThumb(plan, physIndex, w = 260) {
+  const { canvas } = await renderPdfPage(Object.assign({}, plan, { srcPages: null }), physIndex, w);
+  return canvas;
+}
 export async function pageCount(plan) {
   if (plan.kind !== 'pdf') return 1;
   return (await openPdf(plan)).numPages;
@@ -50,7 +73,7 @@ async function imageBitmap(blob) { return createImageBitmap(blob); }
 // Rendu générique (PDF ou image) d'une page de plan
 export async function renderPlan(plan, pageIndex, widthPx) {
   if (plan.kind === 'pdf') return renderPdfPage(plan, pageIndex, widthPx);
-  const bmp = await imageBitmap(plan.blob);
+  const bmp = await imageBitmap(await planBlob(plan));
   const c = document.createElement('canvas');
   const k = widthPx / bmp.width;
   c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
@@ -521,11 +544,18 @@ export async function exportAnnotatedPlan({ plan, pages, points }) {
   const { L } = await pdfLib();
   const { pdf, f } = await (async () => {
     let doc;
-    if (plan.kind === 'pdf') doc = await L.PDFDocument.load(await plan.blob.arrayBuffer());
+    if (plan.kind === 'pdf') {
+      doc = await L.PDFDocument.load(await (await planBlob(plan)).arrayBuffer(), { ignoreEncryption: true });
+      if (plan.srcPages && plan.srcPages.length) { // seulement les pages importées, dans l'ordre du plan
+        const out = await L.PDFDocument.create();
+        (await out.copyPages(doc, plan.srcPages)).forEach((pg) => out.addPage(pg));
+        doc = out;
+      }
+    }
     else {
       doc = await L.PDFDocument.create();
-      const bytes = await plan.blob.arrayBuffer();
-      const img = plan.blob.type.includes('png') ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+      const pb = await planBlob(plan); const bytes = await pb.arrayBuffer();
+      const img = pb.type.includes('png') ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
       const pg = doc.addPage([img.width, img.height]); pg.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
     }
     const { fontkit, bytes } = await pdfLib();
