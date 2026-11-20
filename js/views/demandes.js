@@ -156,7 +156,7 @@ async function renderOne(view, id) {
   const drawDrive = () => put(clear(driveLine), !gd.available() ? null : !gd.token() ? h('span', null, 'Drive : connecte-toi pour ranger cette demande dans STATERA_DEMANDES. ', h('button', { class: 'linkish', onclick: () => gd.signIn(location.hash) }, 'Se connecter'))
     : d.drive ? h('span', null, 'Drive : ', h('a', { href: d.drive.link || '#', target: '_blank', rel: 'noopener' }, 'STATERA_DEMANDES › ' + d.drive.name), d.drive.at ? ' · à jour ' + new Date(d.drive.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '') : 'Drive : rangement en cours…');
   const syncNow = async () => {
-    if (!gd.token()) { drawDrive(); return; }
+    if (!(await gd.ensureToken())) { drawDrive(); return; }
     try { await gd.syncDemande(d); await db.put('demandes', d); drawDrive(); gd.syncDemandesIndex(await db.all('demandes')).catch(() => {}); }
     catch (e) { driveLine.textContent = 'Drive : ' + e.message; }
   };
@@ -225,7 +225,7 @@ async function renderOne(view, id) {
   };
   let mails = null;
   const findMails = async () => {
-    if (!gd.token()) { gd.signIn(location.hash); return; }
+    if (!(await gd.ensureToken())) { gd.signIn(location.hash); return; }
     put(clear(mailBox), h('div', { class: 'small muted' }, 'Recherche des e-mails avec ' + d.client.email + '…'));
     try { mails = await gd.gmailExchanges(d.client.email.trim()); }
     catch (e) { put(clear(mailBox), mailErr(e)); return; }

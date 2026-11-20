@@ -3,14 +3,19 @@
 //   GEMINI_API_KEY  clé créée sur https://aistudio.google.com/apikey (obligatoire)
 //   ATELIER_TOKEN   code d'accès saisi dans Réglages de l'Atelier (recommandé)
 //   GEMINI_MODEL    facultatif, par défaut gemini-flash-latest
+const { session, allowed } = require('./_session');
+
 module.exports = async (req, res) => {
   const key = process.env.GEMINI_API_KEY;
   const token = process.env.ATELIER_TOKEN;
   res.setHeader('Cache-Control', 'no-store');
-  if (req.method === 'GET') return res.status(200).json({ configured: !!key, protected: !!token });
+  if (req.method === 'GET') return res.status(200).json({ configured: !!key, protected: !!token, session: !!session(req) });
   if (req.method !== 'POST') return res.status(405).json({ error: 'method' });
   if (!key) return res.status(501).json({ error: 'not-configured' });
-  if (token && req.headers['x-atelier-token'] !== token) return res.status(401).json({ error: 'token' });
+  // Accès : connexion Google de l'agence (cookie de session) ou code d'accès IA
+  const ses = session(req);
+  const okSession = ses && allowed(ses.email);
+  if (token && !okSession && req.headers['x-atelier-token'] !== token) return res.status(401).json({ error: 'token' });
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
   const prompt = body && body.prompt;

@@ -5,7 +5,7 @@ import { db } from './db.js';
 import { FOLDERS, driveFolderName, folderOf, PHASES } from './data.js';
 
 export const CLIENT_ID = '801369190574-3fls5l6a0kbumk8usql1s2hsh95hs7vo.apps.googleusercontent.com';
-const SCOPE = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.readonly';
+const SCOPE = 'openid email https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.readonly';
 const API = 'https://www.googleapis.com/drive/v3';
 const UP = 'https://www.googleapis.com/upload/drive/v3';
 const LS = 'statera-atelier-gdrive';
@@ -20,8 +20,48 @@ export function token() { const s = read(); return s.token && s.exp > Date.now()
 export const connected = () => !!read().email;
 export const account = () => read().email || '';
 
-// Retour de Google : #access_token=…&expires_in=…&state=…  (appelé par le routeur avant tout affichage)
-export function handleRedirect() {
+// Session longue durée côté serveur (/api/gauth) : le jeton de renouvellement reste dans un cookie sécurisé.
+let srvConf = null;
+async function serverConf() {
+  if (srvConf) return srvConf;
+  try { const r = await fetch('/api/gauth', { cache: 'no-store' }); srvConf = r.ok ? await r.json() : { configured: false }; } catch (e) { srvConf = { configured: false }; }
+  return srvConf;
+}
+let refreshP = null;
+// Renvoie un jeton valide : celui en mémoire, sinon renouvelé en silence par le serveur
+export async function ensureToken() {
+  const t = token(); if (t) return t;
+  if (!available()) return null;
+  if (!refreshP) refreshP = (async () => {
+    try {
+      const r = await fetch('/api/gauth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'refresh' }) });
+      if (!r.ok) return null;
+      const j = await r.json();
+      const s = read(); s.token = j.access_token; s.exp = Date.now() + (Number(j.expires_in) || 3600) * 1000; s.email = j.email || s.email; s.persistent = true; write(s);
+      return s.token;
+    } catch (e) { return null; } finally { setTimeout(() => { refreshP = null; }, 0); }
+  })();
+  return refreshP;
+}
+export const persistent = () => !!read().persistent;
+
+// Retour de Google : ?code=… (session longue durée) ou #access_token=… (session d'une heure)
+export async function handleRedirect() {
+  const sq = new URLSearchParams(location.search);
+  if (sq.get('code') || (sq.get('error') && sq.get('state'))) {
+    let back = '#/reglages';
+    try { const st = JSON.parse(atob(sq.get('state') || '')); if (st.back) back = st.back; } catch (e) { /* état */ }
+    history.replaceState(null, '', location.pathname + back);
+    if (!sq.get('code')) { toast('Connexion Google annulée'); return true; }
+    try {
+      const r = await fetch('/api/gauth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'code', code: sq.get('code') }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { toast('Connexion Google : ' + (j.message || j.error || r.status)); return true; }
+      const s = read(); s.token = j.access_token; s.exp = Date.now() + (Number(j.expires_in) || 3600) * 1000; s.email = j.email; s.persistent = !!j.persistent; write(s);
+      whoami().catch(() => {});
+    } catch (e) { toast('Connexion Google impossible (hors ligne ?)'); }
+    return true;
+  }
   const hsh = location.hash || '';
   if (!/access_token=|error=/.test(hsh) || /^#\//.test(hsh)) return false;
   const q = new URLSearchParams(hsh.slice(1));
@@ -37,18 +77,25 @@ export function handleRedirect() {
   return true;
 }
 
-export function signIn(back) {
+export async function signIn(back) {
+  const conf = await serverConf();
   const u = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   u.searchParams.set('client_id', CLIENT_ID);
   u.searchParams.set('redirect_uri', location.origin + '/');
-  u.searchParams.set('response_type', 'token');
   u.searchParams.set('scope', SCOPE);
   u.searchParams.set('include_granted_scopes', 'true');
   u.searchParams.set('login_hint', read().email || HINT);
   u.searchParams.set('state', btoa(JSON.stringify({ back: back || location.hash || '#/projets' })));
+  if (conf.configured) {
+    // une seule fois : Google remet un jeton de renouvellement, gardé par le serveur
+    u.searchParams.set('response_type', 'code');
+    u.searchParams.set('access_type', 'offline');
+    u.searchParams.set('prompt', 'consent');
+  } else u.searchParams.set('response_type', 'token');
   location.href = u.toString();
 }
 export function signOut() {
+  fetch('/api/gauth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }).catch(() => {});
   const t = read().token;
   if (t) fetch('https://oauth2.googleapis.com/revoke?token=' + encodeURIComponent(t), { method: 'POST' }).catch(() => {});
   write({});
@@ -56,7 +103,7 @@ export function signOut() {
 
 class NeedAuth extends Error {}
 async function api(path, opts = {}, raw = false) {
-  const t = token();
+  const t = await ensureToken();
   if (!t) throw new NeedAuth('Connexion Google nécessaire');
   const r = await fetch(path.startsWith('http') ? path : API + path, Object.assign({}, opts, { headers: Object.assign({ Authorization: 'Bearer ' + t }, opts.headers || {}) }));
   if (r.status === 401) { const s = read(); delete s.token; write(s); throw new NeedAuth('Session Google expirée'); }
@@ -275,10 +322,10 @@ window.addEventListener('atelier:file-saved', async (e) => {
 
 export function connectBox(back) {
   if (!available()) return h('div', { class: 'small muted' }, 'La connexion Google fonctionne sur la version en ligne (statera-atelier.vercel.app).');
-  if (token()) return h('div', { class: 'flexb' }, h('span', { class: 'small' }, icon('check', 16), ' Connecté · ' + (account() || 'Google Drive')),
+  if (token()) return h('div', { class: 'flexb' }, h('span', { class: 'small' }, icon('check', 16), ' Connecté · ' + (account() || 'Google Drive') + (persistent() ? ' · session permanente' : ' · session d’une heure')),
     h('button', { class: 'btn btn-sm btn-line', onclick: () => { signOut(); toast('Drive déconnecté'); window.dispatchEvent(new HashChangeEvent('hashchange')); } }, 'Déconnecter'));
   return h('div', { class: 'stack' },
-    connected() ? h('div', { class: 'small muted' }, 'Session expirée (elle dure une heure) : reconnecte-toi, c’est immédiat.') : null,
+    connected() ? h('div', { class: 'small muted' }, 'Session Google à renouveler : reconnecte-toi une fois, elle restera ensuite ouverte sur cet appareil.') : null,
     h('button', { class: 'btn btn-primary', style: { alignSelf: 'flex-start' }, onclick: () => signIn(back) }, icon('folder', 18), connected() ? 'Reconnecter Google Drive' : 'Connecter Google Drive'));
 }
 
@@ -487,4 +534,15 @@ export async function gmailExchanges(email, max = 40) {
     out.push({ id: m.id, threadId: j.threadId, date: new Date(Number(j.internalDate)).toISOString(), from: hd('from'), to: hd('to'), subject: hd('subject'), snippet: j.snippet || '', text: unquote(bodyOf(j.payload)).slice(0, 4000), out: !hd('from').toLowerCase().includes(email.toLowerCase()) });
   }
   return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Garde la session ouverte : renouvelle le jeton avant son expiration (et au retour sur l'app)
+function keepAlive() {
+  const s = read();
+  if (!s.persistent || !s.email) return;
+  if (!s.exp || s.exp < Date.now() + 15 * 60000) { delete s.token; write(s); ensureToken().catch(() => {}); }
+}
+if (typeof window !== 'undefined') {
+  setInterval(keepAlive, 5 * 60000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAlive(); });
 }

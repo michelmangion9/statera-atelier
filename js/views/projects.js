@@ -14,7 +14,7 @@ export async function render(view) {
   points.forEach((p) => { if (p.status !== 'leve') openBy[p.projectId] = (openBy[p.projectId] || 0) + 1; });
   const linked = local.filter((p) => p.drive && p.drive.id);
   const unlinked = local.filter((p) => !(p.drive && p.drive.id));
-  const online = gd.available() && !!gd.token();
+  const online = gd.available() && !!(await gd.ensureToken());
   let drive = null, driveErr = '';
   const listBox = h('div');
   const status = h('div', { class: 'sub' });
@@ -87,7 +87,7 @@ export async function render(view) {
 }
 
 export async function newProject(pre = {}, onCreated) {
-  if (!gd.available() || !gd.token()) {
+  if (!gd.available() || !(await gd.ensureToken())) {
     if (gd.available()) { if (await confirmBox('La création d’un projet se fait dans ton Google Drive. Te connecter maintenant ?', 'Connecter')) gd.signIn('#/projets'); }
     else toast('Création des projets sur la version en ligne (Drive)');
     return;

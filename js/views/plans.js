@@ -114,7 +114,7 @@ export function render(body, { project: p, plans, points }) {
     return h('button', { class: 'btn btn-line', onclick: async () => {
       const gd = await import('../gdrive.js');
       if (!gd.available()) { toast('Disponible sur la version en ligne'); return; }
-      if (!gd.token()) { gd.signIn(location.hash); return; }
+      if (!(await gd.ensureToken())) { gd.signIn(location.hash); return; }
       if (!p.drive || !p.drive.id) { if (!await gd.linkProject(p)) return; }
       const f = await gd.pickFromDrive(p);
       if (!f) return;

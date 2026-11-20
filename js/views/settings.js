@@ -45,7 +45,15 @@ export async function render(view) {
         h('section', { class: 'card stack' },
           h('h2', { class: 'section-t', style: { margin: 0 } }, 'Écoute IA · Gemini'),
           (() => { const st = h('div', { class: 'small muted' }, 'Vérification…'); fetch('/api/resume', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { st.textContent = j && j.configured ? 'Gemini est activé : le résumé des rendez-vous se fait automatiquement.' : 'Gemini n’est pas encore activé sur le serveur : le résumé passe par un copier-coller dans Gemini.'; }).catch(() => { st.textContent = 'Hors ligne ou aperçu : le résumé passe par un copier-coller dans Gemini.'; }); return st; })(),
-          (() => { const i = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'Code d’accès IA (ATELIER_TOKEN)' }); try { i.value = localStorage.getItem('statera-atelier-ia') || ''; } catch (e) { /* stockage */ } i.addEventListener('change', () => { try { localStorage.setItem('statera-atelier-ia', i.value.trim()); toast('Code enregistré sur cet appareil'); } catch (e) { /* stockage */ } }); return fld('Code d’accès IA', i); })()),
+          (() => {
+            const i = h('input', { class: 'input', type: 'password', autocomplete: 'off', placeholder: 'Code d’accès IA (facultatif si Google est connecté)' });
+            const ok = h('div', { class: 'small muted' });
+            try { i.value = localStorage.getItem('statera-atelier-ia') || ''; } catch (e) { /* stockage */ }
+            const store = () => { try { localStorage.setItem('statera-atelier-ia', i.value.trim()); ok.textContent = i.value.trim() ? 'Code enregistré sur cet appareil.' : ''; } catch (e) { ok.textContent = 'Enregistrement impossible (navigation privée ?)'; } };
+            i.addEventListener('input', store); i.addEventListener('change', store);
+            fetch('/api/resume', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).then((j) => { if (j && j.session) ok.textContent = 'Ta connexion Google suffit : le code n’est plus nécessaire.'; else if (i.value) ok.textContent = 'Code enregistré sur cet appareil.'; }).catch(() => {});
+            return h('div', { class: 'stack' }, fld('Code d’accès IA', i), ok);
+          })()),
         h('section', { class: 'card stack' },
           h('h2', { class: 'section-t', style: { margin: 0 } }, 'Google Drive'),
           h('div', { class: 'small', style: { lineHeight: 1.55 } }, 'Chaque projet est relié à son dossier du Drive : tu y navigues depuis l’onglet Fichiers, tu importes les plans directement, et les comptes rendus, PV et fiches générés y sont déposés tout seuls (03_Emis, 04_Valide).'),

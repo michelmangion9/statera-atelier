@@ -124,10 +124,10 @@ function localView(body, { project: p, files, params }, seg) {
   draw();
 }
 
-function driveView(body, p, seg) {
+async function driveView(body, p, seg) {
   clear(body).appendChild(seg);
   if (!gd.available()) { put(body, h('div', { class: 'alert' }, 'Google Drive est accessible depuis la version en ligne : statera-atelier.vercel.app')); return; }
-  if (!gd.token()) { put(body, h('section', { class: 'card stack' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Google Drive'), h('div', { class: 'small' }, 'Connecte ton Drive pour voir et utiliser les documents du projet.'), gd.connectBox(location.hash))); return; }
+  if (!(await gd.ensureToken())) { put(body, h('section', { class: 'card stack' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Google Drive'), h('div', { class: 'small' }, 'Connecte ton Drive pour voir et utiliser les documents du projet.'), gd.connectBox(location.hash))); return; }
   if (!p.drive || !p.drive.id) {
     put(body, h('section', { class: 'card stack' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Relier le projet à son dossier Drive'),
       h('div', { class: 'small' }, 'Je cherche le dossier « ' + (p.code || 'n° d’affaire') + ' » dans ton Drive, ou je crée l’arborescence STATERA complète.'),

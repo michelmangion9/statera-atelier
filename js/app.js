@@ -3,7 +3,7 @@ import { h, put, clear, icon } from './lib.js';
 import { db, askPersist } from './db.js';
 import { logoSVG } from './brand.js';
 import { setLots, LOTS_VERSION } from './data.js';
-import { handleRedirect } from './gdrive.js';
+import { handleRedirect, ensureToken, connected as gdConnected } from './gdrive.js';
 
 const NAV = [
   { id: 'demandes', href: '#/demandes', label: 'Demandes', icon: 'mail' },
@@ -87,6 +87,8 @@ if ('serviceWorker' in navigator && location.protocol === 'https:' && !location.
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
 }
 askPersist();
-try { handleRedirect(); } catch (e) { /* retour Google */ }
+try { await handleRedirect(); } catch (e) { /* retour Google */ }
+// Session Google longue durée : le jeton d'accès est renouvelé sans reconnexion
+try { if (gdConnected()) await Promise.race([ensureToken(), new Promise((r) => setTimeout(r, 2500))]); } catch (e) { /* hors ligne */ }
 try { const saved = await db.setting('lots', null); const v = await db.setting('lotsVersion', 1); if (Array.isArray(saved) && saved.length && v === LOTS_VERSION) setLots(saved); } catch (e) { /* liste par défaut */ }
 route();

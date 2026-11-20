@@ -123,15 +123,26 @@ export function sketchBook({ p, n, save }) {
     if (!plans.length) { toast('Aucun plan importé dans ce projet (onglet Plans)'); return; }
     const { renderPlan, pageCount } = await import('./pdfkit.js');
     const box = h('div', { class: 'list' });
-    const s = sheet({ title: 'Plan en fond', body: [box] });
+    const s = sheet({ title: 'Plan en fond', body: [h('div', { class: 'small muted' }, 'Les plans importés dans l’onglet Plans du projet.'), box] });
     for (const pl of plans) {
       let np = 1; try { np = pl.srcPages && pl.srcPages.length ? pl.srcPages.length : await pageCount(pl); } catch (e) { /* plan illisible */ }
       for (let i = 0; i < np; i++) {
         box.appendChild(h('button', { class: 'row row-btn', onclick: async () => {
           s.close(); toast('Préparation du plan…');
-          const { canvas } = await renderPlan(pl, i, 2400);
-          const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.9));
-          await setBg(blob, canvas.width, canvas.height, 'plan', (pl.nom || pl.name || 'Plan') + (np > 1 ? ' · p.' + (i + 1) : ''));
+          // iPad : la mémoire des canvas est limitée ; on réessaie plus petit si l'image ne sort pas
+          let out = null, err = null;
+          for (const w of [2000, 1400, 900]) {
+            try {
+              const { canvas } = await renderPlan(pl, i, w);
+              let blob = await new Promise((r) => { try { canvas.toBlob(r, 'image/jpeg', 0.88); } catch (e) { r(null); } });
+              if (!blob) { try { const u = canvas.toDataURL('image/jpeg', 0.85); if (u.length > 1000) blob = await (await fetch(u)).blob(); } catch (e) { /* trop grand */ } }
+              const cw = canvas.width, ch = canvas.height; canvas.width = canvas.height = 0;
+              if (blob && blob.size > 1000) { out = { blob, cw, ch }; break; }
+            } catch (e) { err = e; }
+          }
+          if (!out) { toast('Plan impossible à préparer' + (err ? ' : ' + (err.message || err) : '') + '. Ouvre-le une fois dans Plans puis réessaie.'); return; }
+          try { await setBg(out.blob, out.cw, out.ch, 'plan', (pl.nom || pl.name || 'Plan') + (np > 1 ? ' · p.' + (i + 1) : '')); toast('Plan en fond : dessine par-dessus'); }
+          catch (e) { toast('Enregistrement du fond impossible : ' + (e.message || e)); }
         } }, h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, (pl.nom || pl.name || 'Plan') + (np > 1 ? ' · page ' + (i + 1) : '')), h('span', { class: 'row-s' }, pl.indice ? 'Indice ' + pl.indice : ''))));
       }
     }
