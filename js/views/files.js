@@ -52,9 +52,10 @@ export function render(body, { project: p, files, params }) {
     if (!picked.length) return;
     const f = FOLDERS.find((x) => x.id === folder);
     for (const file of picked) {
-      const rec = { id: uid(), projectId: p.id, folder, sub: f && f.phase ? (sub !== 'tous' ? sub : (camera ? '02_Travail' : '01_Entrant')) : undefined, name: file.name, mime: file.type || 'application/octet-stream', size: file.size, blob: file, phase: p.phase, createdAt: new Date().toISOString(), source: 'import' };
+      let blob; try { blob = new Blob([await file.arrayBuffer()], { type: file.type || 'application/octet-stream' }); } catch (e) { toast('Fichier inaccessible : ' + file.name); continue; }
+      const rec = { id: uid(), projectId: p.id, folder, sub: f && f.phase ? (sub !== 'tous' ? sub : (camera ? '02_Travail' : '01_Entrant')) : undefined, name: file.name, mime: blob.type, size: blob.size, blob, phase: p.phase, createdAt: new Date().toISOString(), source: 'import' };
       if (camera) rec.name = fileName({ date: todayISO(), code: fileCode(p), phase: p.phase, type: 'PHO', objet: 'Photo ' + new Date().toTimeString().slice(0, 5).replace(':', 'h'), ind: 'A', ext: 'jpg' });
-      await db.put('files', rec); files.push(rec);
+      try { await db.put('files', rec); files.push(rec); } catch (e) { toast((e && e.message) || 'Enregistrement impossible'); }
     }
     toast(picked.length + ' fichier(s) ajouté(s)');
     folderBtns.forEach((b) => { b.querySelector('small').textContent = count(b.dataset.f) || ''; });

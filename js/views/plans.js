@@ -11,11 +11,15 @@ export async function importPlanBlobs(project, files, { askMeta = true } = {}) {
     const isImg = /^image\//.test(f.type);
     if (!isPdf && !isImg) { toast('Format non pris en charge : ' + f.name); continue; }
     const base = f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-    const plan = { id: uid(), projectId: project.id, nom: base, phase: project.phase, indice: 'A', kind: isPdf ? 'pdf' : 'image', mime: f.type || (isPdf ? 'application/pdf' : 'image/jpeg'), blob: f, createdAt: new Date().toISOString() };
-    try { plan.pages = await pageCount(plan); } catch (e) { toast('PDF illisible : ' + f.name); continue; }
-    plan.thumb = await planThumb(plan);
+    toast('Lecture de « ' + f.name + ' »…');
+    let blob;
+    try { blob = new Blob([await f.arrayBuffer()], { type: f.type || (isPdf ? 'application/pdf' : 'image/jpeg') }); }
+    catch (e) { toast('Fichier inaccessible : ' + f.name + ' (s’il est sur Google Drive, attends la fin du téléchargement)'); continue; }
+    const plan = { id: uid(), projectId: project.id, nom: base, phase: project.phase, indice: 'A', kind: isPdf ? 'pdf' : 'image', mime: blob.type, blob, size: blob.size, createdAt: new Date().toISOString() };
+    try { plan.pages = await pageCount(plan); } catch (e) { toast('PDF illisible : ' + f.name + ' — ' + ((e && e.message) || e)); continue; }
+    try { plan.thumb = await planThumb(plan); } catch (e) { plan.thumb = null; }
     if (askMeta) { const ok = await editPlan(plan, true); if (!ok) continue; }
-    await db.put('plans', plan);
+    try { await db.put('plans', plan); } catch (e) { toast((e && e.message) || 'Enregistrement impossible'); continue; }
     created.push(plan);
   }
   return created;
