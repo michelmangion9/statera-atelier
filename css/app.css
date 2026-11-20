@@ -404,3 +404,11 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .chk { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 12px; border: 1px solid var(--beton); background: #fff; cursor: pointer; }
 .chk input { width: 20px; height: 20px; accent-color: #161616; }
 .cr-echanges { white-space: pre-wrap; font-size: 14.5px; line-height: 1.55; background: #fff; border: 1px solid var(--rule); padding: 14px 16px; max-height: 420px; overflow: auto; }
+/* Écoute en cours : bandeau visible sur toutes les pages */
+.listen-float { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 9000; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; background: #161616; color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.28); font-size: 14px; max-width: calc(100vw - 24px); }
+.listen-float .lf-dot { width: 10px; height: 10px; border-radius: 50%; background: #E5484D; flex-shrink: 0; animation: lfpulse 1.4s ease-in-out infinite; }
+.listen-float .lf-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.listen-float .lf-btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border: 1px solid rgba(255,255,255,.4); background: transparent; color: #fff; font: inherit; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.listen-float .lf-stop { background: #B3261E; border-color: #B3261E; }
+@keyframes lfpulse { 50% { opacity: .35; } }
+@media print { .listen-float { display: none !important; } }
