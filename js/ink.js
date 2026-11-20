@@ -166,10 +166,10 @@ export function sketchSurface(el, { strokes = [], aspect = 1.414, onChange, getP
   svg.addEventListener('pointercancel', end);
 
   function eraseAt(e) {
-    const t = document.elementFromPoint(e.clientX, e.clientY);
-    if (t && t.tagName === 'path' && t.dataset.id) {
-      const s = list.find((x) => x.id === t.dataset.id);
-      list = list.filter((x) => x.id !== t.dataset.id);
+    const [x, y] = toUnits(e);
+    const s = hitStroke(list, x, y, tolUnits() * 2.5);
+    if (s) {
+      list = list.filter((q) => q !== s);
       undoStack.push({ del: s });
       renderStrokes(svg, list); onChange && onChange(list);
     }
@@ -192,6 +192,22 @@ export function miniSketch(strokes, aspect = 1.414, cls = 'mini') {
   const svg = h('svg', { viewBox: `0 0 1000 ${1000 * aspect}`, class: cls, preserveAspectRatio: 'xMidYMid meet', 'aria-hidden': 'true' });
   renderStrokes(svg, strokes || []);
   return svg;
+}
+
+// Gomme : trait le plus proche du point touché (tolérance en unités du dessin)
+export function hitStroke(strokes, x, y, tol) {
+  let best = null, bd = Infinity;
+  for (const st of strokes) {
+    const pts = st.pts || []; const r = tol + (st.size || 3) / 2;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1] || a;
+      const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy;
+      const t = L ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)) : 0;
+      const d = Math.hypot(x - (a[0] + t * dx), y - (a[1] + t * dy));
+      if (d < r && d < bd) { bd = d; best = st; }
+    }
+  }
+  return best;
 }
 
 /* ---------- Traits droits et formes ----------
