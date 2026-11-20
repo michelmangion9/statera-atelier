@@ -64,6 +64,22 @@ export async function pageThumb(plan, physIndex, w = 260) {
   const { canvas } = await renderPdfPage(Object.assign({}, plan, { srcPages: null }), physIndex, w);
   return canvas;
 }
+// Rendu net d'une zone de la page (zoom fort) : seule la partie visible est calculée, à la résolution de l'écran
+export async function renderPdfRegion(plan, pageIndex, rect, unitsW, pxW, pxH, holder) {
+  const pdf = await openPdf(plan);
+  const phys = plan.srcPages && plan.srcPages.length ? plan.srcPages[pageIndex] ?? pageIndex : pageIndex;
+  const page = await pdf.getPage(phys + 1);
+  const vp1 = page.getViewport({ scale: 1 });
+  const ptPerUnit = vp1.width / unitsW;
+  const k = pxW / (rect.w * ptPerUnit);
+  const vp = page.getViewport({ scale: k, offsetX: -rect.x * ptPerUnit * k, offsetY: -rect.y * ptPerUnit * k });
+  const c = document.createElement('canvas'); c.width = pxW; c.height = pxH;
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pxW, pxH);
+  const task = page.render({ canvasContext: ctx, viewport: vp });
+  if (holder) holder.task = task;
+  await task.promise;
+  return c;
+}
 export async function pageCount(plan) {
   if (plan.kind !== 'pdf') return 1;
   return (await openPdf(plan)).numPages;

@@ -1,9 +1,9 @@
 // Visionneuse de plan : PDF ou image, zoom au doigt, annotations au stylet, textes,
 // points numérotés rattachés à un lot et à l'entreprise du chantier, photos annotées.
-import { h, put, clear, icon, uid, debounce, toast, clamp, fmtShort, todayISO, confirmBox, promptBox, shareOrDownload } from '../lib.js';
+import { h, put, clear, icon, uid, debounce, toast, clamp, fmtShort, todayISO, confirmBox, promptBox, shareOrDownload, sheet } from '../lib.js';
 import { db } from '../db.js';
 import { LOTS, lot as lotOf, POINT_STATUS, POINT_NATURE, phase, fileName, fileCode, destFor } from '../data.js';
-import { renderPlan } from '../pdfkit.js';
+import { renderPlan, renderPdfRegion } from '../pdfkit.js';
 import { strokeEl, strokePath, renderStrokes, penPicker, strokeStyle, shaper, nearEnd } from '../ink.js';
 import { addPhotos, photoThumb, openPhotoEditor } from './photo.js';
 import { loadProject } from './project.js';
@@ -34,17 +34,29 @@ export async function renderViewer(view, params) {
   const undo = [];
 
   const pageKey = () => plan.id + ':' + pageIndex;
-  const pageData = () => (pagesMap[pageKey()] = pagesMap[pageKey()] || { key: pageKey(), planId: plan.id, page: pageIndex, strokes: [], texts: [] });
+  // Visite en cours (ouverte depuis une réunion / OPR / réception) : ses annotations vont sur son propre calque
+  const visit = params.q.v ? await db.get('reunions', params.q.v) : null;
+  const pageData = () => {
+    const pd = (pagesMap[pageKey()] = pagesMap[pageKey()] || { key: pageKey(), planId: plan.id, page: pageIndex, strokes: [], texts: [] });
+    if (!pd.layers || !pd.layers.length) pd.layers = [{ id: 'base', name: 'Calque 1', visible: true }];
+    if (visit && !pd.layers.some((l) => l.visiteId === visit.id)) pd.layers.push({ id: 'v-' + visit.id, name: 'Visite n°' + visit.num + ' · ' + fmtShort(visit.date), visible: true, visiteId: visit.id, visiteNum: visit.num });
+    if (!pd.active || !pd.layers.some((l) => l.id === pd.active)) pd.active = visit ? 'v-' + visit.id : pd.layers[pd.layers.length - 1].id;
+    return pd;
+  };
+  const layerOf = (o) => o.layer || 'base';
+  const isVisible = (o) => { const l = pageData().layers.find((x) => x.id === layerOf(o)); return !l || l.visible !== false; };
   const savePage = debounce(() => db.put('pages', pageData()), 400);
 
   /* ---------- DOM ---------- */
   const canvasHolder = h('div', { style: { position: 'absolute', inset: 0 } });
-  const inkSvg = h('svg', { class: 'ink', viewBox: '0 0 1000 707', preserveAspectRatio: 'none' });
-  const textsBox = h('div', { style: { position: 'absolute', inset: 0 } });
-  const pinsBox = h('div', { style: { position: 'absolute', inset: 0 } });
-  const sheetEl = h('div', { class: 'v-sheet', style: { width: W + 'px' } }, canvasHolder, inkSvg, textsBox, pinsBox);
+  const detailBox = h('div', { style: { position: 'absolute', inset: 0, pointerEvents: 'none' } });
+  const sheetEl = h('div', { class: 'v-sheet', style: { width: W + 'px' } }, canvasHolder, detailBox);
+  // Couche nette : traits (SVG vectoriel), textes et points sont dessinés à la résolution de l'écran, sans agrandissement flou
+  const inkSvg = h('svg', { class: 'ink v-ink', preserveAspectRatio: 'none' });
+  const textsBox = h('div', { class: 'v-over' });
+  const pinsBox = h('div', { class: 'v-over' });
   const hint = h('div', { class: 'hintbar', hidden: true });
-  const stage = h('div', { class: 'v-stage', role: 'application', 'aria-label': 'Plan ' + plan.nom }, sheetEl, hint);
+  const stage = h('div', { class: 'v-stage', role: 'application', 'aria-label': 'Plan ' + plan.nom }, sheetEl, inkSvg, textsBox, pinsBox, hint);
   const titleSub = h('span');
   const panel = h('aside', { class: 'v-panel', 'aria-label': 'Point sélectionné', hidden: true });
 
@@ -56,16 +68,18 @@ export async function renderViewer(view, params) {
   const picker = penPicker({});
   picker.el.hidden = true;
   const lotSel = h('select', { class: 'select', 'aria-label': 'Filtrer les points par lot' });
+  const layerLbl = h('span', { class: 'tool-l' });
+  const layerBtn = h('button', { class: 'tool', title: 'Calques', 'aria-label': 'Calques', onclick: () => openLayers() }, icon('layers', 18), layerLbl);
   const pageLbl = h('span', { class: 'info' });
   const countLbl = h('span', { class: 'info' });
 
   const root = h('div', { class: 'viewer' },
     h('div', { class: 'v-top dark' },
-      h('a', { class: 'tool', href: '#/p/' + p.id + '/plans', 'aria-label': 'Retour aux plans' }, icon('back', 18)),
-      h('div', { class: 'v-title' }, h('b', null, plan.nom), titleSub),
+      h('a', { class: 'tool', href: visit ? '#/p/' + p.id + '/chantier?r=' + visit.id : '#/p/' + p.id + '/plans', 'aria-label': visit ? 'Retour à la visite' : 'Retour aux plans' }, icon('back', 18)),
+      h('div', { class: 'v-title' }, h('b', null, plan.nom), titleSub, visit ? h('a', { class: 'v-visit', href: '#/p/' + p.id + '/chantier?r=' + visit.id }, 'Visite n°' + visit.num + ' · ' + fmtShort(visit.date)) : null),
       h('div', { class: 'toolbar', role: 'toolbar', 'aria-label': 'Outils' }, toolBtns,
         h('button', { class: 'tool', title: 'Annuler', 'aria-label': 'Annuler la dernière annotation', onclick: doUndo }, icon('undo', 18)),
-        h('button', { class: 'tool', 'aria-pressed': 'true', title: 'Afficher les annotations', 'aria-label': 'Afficher les annotations', onclick: (e) => { showInk = !showInk; e.currentTarget.setAttribute('aria-pressed', String(showInk)); inkSvg.style.display = textsBox.style.display = showInk ? '' : 'none'; } }, icon('layers', 18)),
+        layerBtn,
         h('button', { class: 'tool', onclick: exportPlan, title: 'Exporter le plan annoté', 'aria-label': 'Exporter le plan annoté' }, icon('share', 18))),
       picker.el),
     stage,
@@ -95,25 +109,44 @@ export async function renderViewer(view, params) {
     if (token !== renderToken) return;
     H = W * first.h / first.w;
     sheetEl.style.height = H + 'px';
-    inkSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     first.canvas.className = 'pdf';
+    clear(detailBox);
     canvasHolder.appendChild(first.canvas);
     renderedW = first.canvas.width;
-    drawInk(); drawTexts(); drawPins(); fillLotFilter();
+    drawInk(); drawTexts(); drawPins(); fillLotFilter(); updLayerLbl();
     const sel = selId && points.find((x) => x.id === selId);
     if (sel && (sel.page || 0) === pageIndex) { fit(); centerOn(sel); openPanel(sel); } else fit();
   }
+  // Netteté : fond de page jusqu'à 4096 px, puis rendu de la seule zone visible à la résolution de l'écran
+  let detailJob = null;
   const sharpen = debounce(async () => {
     const dpr = window.devicePixelRatio || 1;
-    const want = clamp(Math.round(W * s * dpr * 1.1 / 200) * 200, 1400, 4096);
-    if (want <= renderedW * 1.15) return;
     const token = renderToken;
-    const r = await renderPlan(plan, pageIndex, want);
-    if (token !== renderToken) return;
-    r.canvas.className = 'pdf';
-    clear(canvasHolder).appendChild(r.canvas);
-    renderedW = r.canvas.width;
-  }, 350);
+    const want = clamp(Math.round(W * s * dpr * 1.1 / 200) * 200, 1400, 4096);
+    if (want > renderedW * 1.15) {
+      const r = await renderPlan(plan, pageIndex, want);
+      if (token !== renderToken) return;
+      r.canvas.className = 'pdf';
+      canvasHolder.replaceChildren(r.canvas);
+      renderedW = r.canvas.width;
+    }
+    if (plan.kind !== 'pdf' || W * s * dpr <= renderedW * 1.05) { clear(detailBox); return; }
+    const st = stage.getBoundingClientRect();
+    const x0 = clamp(-tx / s, 0, W), y0 = clamp(-ty / s, 0, H);
+    const x1 = clamp((st.width - tx) / s, 0, W), y1 = clamp((st.height - ty) / s, 0, H);
+    if (x1 - x0 < 1 || y1 - y0 < 1) return;
+    const rect = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    const pxW = Math.min(4096, Math.round(rect.w * s * dpr)), pxH = Math.min(4096, Math.round(rect.h * s * dpr));
+    if (detailJob && detailJob.task) { try { detailJob.task.cancel(); } catch (e) { /* rien */ } }
+    const job = (detailJob = {});
+    try {
+      const c = await renderPdfRegion(plan, pageIndex, rect, W, pxW, pxH, job);
+      if (job !== detailJob || token !== renderToken) return;
+      c.className = 'detail';
+      Object.assign(c.style, { left: rect.x + 'px', top: rect.y + 'px', width: rect.w + 'px', height: rect.h + 'px' });
+      detailBox.replaceChildren(c);
+    } catch (e) { /* rendu annulé par un nouveau zoom */ }
+  }, 260);
   function goPage(i) {
     if (i < 0 || i >= nPages) return;
     pageIndex = i; selId = null; closePanel(); undo.length = 0; loadPage();
@@ -122,17 +155,24 @@ export async function renderViewer(view, params) {
   /* ---------- Transformation ---------- */
   function apply() {
     sheetEl.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
-    sheetEl.style.setProperty('--inv', String(1 / s));
+    const st = stage.getBoundingClientRect();
+    inkSvg.setAttribute('viewBox', `${-tx / s} ${-ty / s} ${st.width / s} ${st.height / s}`);
+    placeOverlay();
     sharpen();
   }
+  function placeOverlay() {
+    pinsBox.querySelectorAll('.pin').forEach((el) => { el.style.left = (tx + Number(el.dataset.x) * W * s) + 'px'; el.style.top = (ty + Number(el.dataset.y) * H * s) + 'px'; });
+    textsBox.querySelectorAll('.vtext').forEach((el) => { el.style.left = (tx + Number(el.dataset.x) * W * s) + 'px'; el.style.top = (ty + Number(el.dataset.y) * H * s) + 'px'; el.style.fontSize = clamp(15 * Math.sqrt(s / (fitScale || s)), 11, 26) + 'px'; });
+  }
+  let fitScale = 0;
   function fit() {
     const r = stage.getBoundingClientRect();
-    s = Math.min(r.width / W, r.height / H) * 0.94;
+    s = Math.min(r.width / W, r.height / H) * 0.94; fitScale = s;
     tx = (r.width - W * s) / 2; ty = (r.height - H * s) / 2;
     apply();
   }
   function zoomAt(cx, cy, k) {
-    const ns = clamp(s * k, 0.15, 12);
+    const ns = clamp(s * k, 0.15, 40);
     k = ns / s;
     tx = cx - (cx - tx) * k; ty = cy - (cy - ty) * k; s = ns;
     apply();
@@ -148,10 +188,39 @@ export async function renderViewer(view, params) {
   const toUnits = (e) => { const r = stage.getBoundingClientRect(); return [(e.clientX - r.left - tx) / s, (e.clientY - r.top - ty) / s, e.pressure || 0.5]; };
 
   /* ---------- Encre ---------- */
-  function drawInk() { renderStrokes(inkSvg, pageData().strokes); }
+  function drawInk() {
+    const pd = pageData();
+    const g = renderStrokes(inkSvg, showInk ? pd.strokes.filter(isVisible) : []);
+    // calques des visites précédentes : légèrement estompés
+    if (visit) g.querySelectorAll('path').forEach((el) => { const st = pd.strokes.find((x) => x.id === el.dataset.id); const l = st && pd.layers.find((x) => x.id === layerOf(st)); if (l && l.visiteNum && l.visiteNum < visit.num) el.setAttribute('fill-opacity', String(Number(el.getAttribute('fill-opacity') || 1) * 0.45)); });
+  }
   function drawTexts() {
     clear(textsBox);
-    pageData().texts.forEach((t) => textsBox.appendChild(h('div', { class: 'vtext', style: { left: t.x * W + 'px', top: t.y * H + 'px' }, 'data-id': t.id }, t.text)));
+    if (showInk) pageData().texts.filter(isVisible).forEach((t) => textsBox.appendChild(h('div', { class: 'vtext', 'data-id': t.id, 'data-x': t.x, 'data-y': t.y }, t.text)));
+    placeOverlay();
+  }
+  function updLayerLbl() { const pd = pageData(); const l = pd.layers.find((x) => x.id === pd.active); layerLbl.textContent = l ? l.name : ''; }
+  // Calques : afficher / masquer, renommer, ajouter, choisir le calque actif
+  function openLayers() {
+    const pd = pageData();
+    const box = h('div', { class: 'list' });
+    const draw = () => {
+      clear(box);
+      pd.layers.forEach((l) => {
+        const n = pd.strokes.filter((x) => layerOf(x) === l.id).length + pd.texts.filter((x) => layerOf(x) === l.id).length;
+        box.appendChild(h('div', { class: 'row' },
+          h('button', { class: 'btn btn-sm ' + (l.visible === false ? 'btn-line' : 'btn-primary'), 'aria-label': l.visible === false ? 'Afficher' : 'Masquer', onclick: () => { l.visible = l.visible === false; savePage(); drawInk(); drawTexts(); draw(); } }, l.visible === false ? 'Masqué' : 'Visible'),
+          h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, l.name), h('span', { class: 'row-s' }, n + ' annotation(s)' + (l.visiteId ? ' · calque de visite' : ''))),
+          h('button', { class: 'btn btn-sm ' + (pd.active === l.id ? 'btn-primary' : 'btn-line'), onclick: () => { pd.active = l.id; l.visible = true; savePage(); updLayerLbl(); drawInk(); drawTexts(); draw(); } }, pd.active === l.id ? 'Actif' : 'Dessiner ici'),
+          h('button', { class: 'btn btn-sm btn-ghost', onclick: async () => { const v = await promptBox('Nom du calque', l.name); if (v && v.trim()) { l.name = v.trim(); savePage(); updLayerLbl(); draw(); } } }, 'Renommer')));
+      });
+    };
+    draw();
+    sheet({ title: 'Calques · page ' + (pageIndex + 1), body: [box,
+      h('div', { class: 'actions' },
+        h('button', { class: 'btn btn-line', onclick: async () => { const v = await promptBox('Nom du nouveau calque', 'Calque ' + (pd.layers.length + 1)); if (!v || !v.trim()) return; const l = { id: uid(), name: v.trim(), visible: true }; pd.layers.push(l); pd.active = l.id; savePage(); updLayerLbl(); draw(); } }, icon('plus', 16), 'Nouveau calque'),
+        h('button', { class: 'btn btn-line', onclick: () => { showInk = !showInk; drawInk(); drawTexts(); toast(showInk ? 'Annotations affichées' : 'Annotations masquées'); } }, 'Tout afficher / masquer')),
+      h('div', { class: 'small muted' }, 'Les nouveaux traits vont sur le calque actif. Ouvert depuis une visite, chaque visite a son calque : les visites précédentes restent visibles, estompées, et se masquent ici.')] });
   }
 
   /* ---------- Points ---------- */
@@ -169,10 +238,11 @@ export async function renderViewer(view, params) {
     const vis = visiblePoints();
     vis.forEach((pt) => {
       const btn = h('button', { 'aria-label': 'Point ' + pt.num + (pt.lot ? ', lot ' + pt.lot : '') + ', ' + (POINT_STATUS.find((x) => x.id === pt.status) || POINT_STATUS[0]).nom }, h('b', null, pt.num), h('i', null, pt.lot ? lotOf(pt.lot).code : 'GÉN'));
-      const el = h('div', { class: 'pin' + (pt.status === 'leve' ? ' leve' : '') + (pt.id === selId ? ' sel' : ''), style: { left: pt.x * W + 'px', top: pt.y * H + 'px' } }, btn);
+      const el = h('div', { class: 'pin' + (pt.status === 'leve' ? ' leve' : '') + (pt.id === selId ? ' sel' : '') + (visit && pt.visiteId && pt.visiteId !== visit.id ? ' prev' : ''), 'data-x': pt.x, 'data-y': pt.y, style: { '--lc': pt.lot ? lotOf(pt.lot).color : '#161616' } }, btn);
       btn.addEventListener('pointerdown', (e) => pinDown(e, pt, el));
       pinsBox.appendChild(el);
     });
+    placeOverlay();
     const open = points.filter((x) => x.planId === plan.id && x.status !== 'leve').length;
     countLbl.textContent = open + ' ouvert' + (open > 1 ? 's' : '');
   }
@@ -188,7 +258,7 @@ export async function renderViewer(view, params) {
       if (!drag.moved) return;
       const [x, y] = toUnits(ev);
       pt.x = clamp(x / W, 0, 1); pt.y = clamp(y / H, 0, 1);
-      el.style.left = pt.x * W + 'px'; el.style.top = pt.y * H + 'px';
+      el.dataset.x = pt.x; el.dataset.y = pt.y; placeOverlay();
     };
     const up = async () => {
       window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
@@ -203,7 +273,7 @@ export async function renderViewer(view, params) {
     const num = points.reduce((m, q) => Math.max(m, q.num || 0), 0) + 1;
     const assigned = p.assignments || [];
     const defLot = lotFilter !== 'tous' && lotFilter !== '—' ? lotFilter : (assigned[0] ? assigned[0].lot : '');
-    const pt = { id: uid(), projectId: p.id, planId: plan.id, page: pageIndex, x: clamp(x / W, 0, 1), y: clamp(y / H, 0, 1), num, lot: defLot, nature: p.phase === 'AOR' ? 'res' : 'obs', status: 'ouvert', text: '', due: '', photos: [], createdAt: new Date().toISOString(), date: todayISO() };
+    const pt = { id: uid(), projectId: p.id, planId: plan.id, page: pageIndex, x: clamp(x / W, 0, 1), y: clamp(y / H, 0, 1), num, lot: defLot, nature: p.phase === 'AOR' ? 'res' : 'obs', status: 'ouvert', text: '', due: '', photos: [], createdAt: new Date().toISOString(), date: todayISO(), visiteId: visit ? visit.id : undefined };
     await db.put('points', pt);
     points.push(pt);
     select(pt);
@@ -274,7 +344,7 @@ export async function renderViewer(view, params) {
   function setMode(m) {
     mode = m;
     toolBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
-    sheetEl.classList.toggle('erasing', m === 'gomme');
+    stage.classList.toggle('erasing', m === 'gomme');
     const drawing = ['stylo', 'feutre', 'surligneur', 'regle'].includes(m);
     picker.el.hidden = !drawing;
     if (drawing) picker.setMode(m === 'regle' ? 'stylo' : m);
@@ -350,7 +420,7 @@ export async function renderViewer(view, params) {
     const r = stage.getBoundingClientRect();
     const d = Math.hypot(a.x - b.x, a.y - b.y);
     const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-    const ns = clamp(gesture.s * d / gesture.d, 0.15, 12);
+    const ns = clamp(gesture.s * d / gesture.d, 0.15, 40);
     const k = ns / gesture.s;
     const ox = gesture.cx - r.left, oy = gesture.cy - r.top;
     s = ns;
@@ -365,11 +435,12 @@ export async function renderViewer(view, params) {
     if (mode === 'regle') { const p0 = toUnits(e); stroke.shp.ruler(stroke, nearEnd(pageData().strokes, p0, 20 / s) || [p0[0], p0[1], 0.5]); }
     stroke.el = strokeEl(stroke);
     (inkSvg.querySelector('g.strokes') || inkSvg.appendChild(h('g', { class: 'strokes' }))).appendChild(stroke.el);
+    if (!showInk) { showInk = true; drawInk(); drawTexts(); inkSvg.querySelector('g.strokes').appendChild(stroke.el); }
   }
   function cancelStroke() { if (stroke) { stroke.shp.end(); stroke.el.remove(); stroke = null; } }
   function finishStroke() {
     stroke.shp.end();
-    const st = { id: stroke.id, pen: stroke.pen, color: stroke.color, size: stroke.size, pressure: stroke.pressure, shape: stroke.shape, pts: stroke.pts.map((q) => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(q[2] * 100) / 100]) };
+    const st = { id: stroke.id, layer: pageData().active, pen: stroke.pen, color: stroke.color, size: stroke.size, pressure: stroke.pressure, shape: stroke.shape, pts: stroke.pts.map((q) => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(q[2] * 100) / 100]) };
     stroke = null;
     pageData().strokes.push(st);
     undo.push({ add: st.id });
@@ -411,7 +482,7 @@ export async function renderViewer(view, params) {
         return;
       }
       const v = await promptBox('Texte sur le plan', '', { multiline: true });
-      if (v && v.trim()) { const t = { id: uid(), x: x / W, y: y / H, text: v.trim() }; pd.texts.push(t); undo.push({ addText: t.id }); drawTexts(); savePage(); }
+      if (v && v.trim()) { const t = { id: uid(), layer: pageData().active, x: x / W, y: y / H, text: v.trim() }; pd.texts.push(t); undo.push({ addText: t.id }); drawTexts(); savePage(); }
       return;
     }
     if (selId && mode === 'nav') closePanel();
@@ -421,7 +492,10 @@ export async function renderViewer(view, params) {
   async function exportPlan() {
     toast('Export du plan annoté…');
     const { exportAnnotatedPlan } = await import('../pdfkit.js');
-    const blob = await exportAnnotatedPlan({ plan, pages: pagesMap, points: points.filter((x) => x.planId === plan.id) });
+    // seuls les calques visibles partent dans la copie annotée
+    const vis = {};
+    for (const [k, pd] of Object.entries(pagesMap)) { const ok = (o) => { const l = (pd.layers || []).find((x) => x.id === (o.layer || 'base')); return !l || l.visible !== false; }; vis[k] = Object.assign({}, pd, { strokes: (pd.strokes || []).filter(ok), texts: (pd.texts || []).filter(ok) }); }
+    const blob = await exportAnnotatedPlan({ plan, pages: vis, points: points.filter((x) => x.planId === plan.id) });
     const ph = phase(plan.phase || p.phase);
     // Copie annotée : « <nom d'origine>_NOTE_AAMMJJ.pdf », à côté du PDF d'origine dans le Drive (qui n'est jamais modifié)
     const d0 = new Date(), stamp = String(d0.getFullYear()).slice(2) + String(d0.getMonth() + 1).padStart(2, '0') + String(d0.getDate()).padStart(2, '0');

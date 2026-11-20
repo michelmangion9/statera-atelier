@@ -77,6 +77,8 @@ export async function render(body, ctx) {
     const prev = reunions[0];
     const r = { id: uid(), projectId: p.id, num, type, date: todayISO(), heure: nowTime(), presence: { moe: 'P' }, general: '', avancement: '', autres: prev ? prev.autres || '' : '', prochaine: '', prochaineHeure: prev ? prev.prochaineHeure || '' : '', sent: {}, createdAt: new Date().toISOString() };
     if (prev && prev.prochaine) r.date = prev.prochaine;
+    // Plans de la visite : ceux de la visite précédente (on suit les mêmes), sinon tous les plans du projet
+    r.plans = prev && prev.plans && prev.plans.length ? prev.plans.filter((id) => (ctx.plans || []).some((pl) => pl.id === id)) : (ctx.plans || []).map((pl) => pl.id);
     await db.put('reunions', r);
     location.hash = '#/p/' + p.id + '/chantier?r=' + r.id;
   }
@@ -98,6 +100,45 @@ export async function render(body, ctx) {
 async function reunionEditor(body, { project: p, entreprises, reunions, r, points, plans }) {
   const ent = (id) => entreprises.find((e) => e.id === id);
   const save = debounce(() => db.put('reunions', r), 400);
+  if (!Array.isArray(r.plans)) { r.plans = plans.map((pl) => pl.id); db.put('reunions', r); }
+  // Plans utilisés par cette visite : on annote sur un calque propre à la visite ; une nouvelle version peut remplacer l'ancienne
+  const plansBox = h('section', { class: 'card stack' });
+  const planOf = (id) => plans.find((pl) => pl.id === id);
+  const drawPlans = () => {
+    const used = r.plans.map(planOf).filter(Boolean);
+    const others = plans.filter((pl) => !r.plans.includes(pl.id));
+    put(clear(plansBox),
+      h('div', { class: 'flexb' }, h('h2', { class: 'section-t', style: { margin: 0 } }, 'Plans de la visite'), h('span', { class: 'small muted' }, 'Annotations sur le calque « Visite n°' + r.num + ' »')),
+      used.length ? h('div', { class: 'list' }, used.map((pl) => {
+        const open = points.filter((x) => x.planId === pl.id && x.status !== 'leve').length;
+        return h('div', { class: 'row' },
+          pl.thumb ? h('img', { src: URL.createObjectURL(pl.thumb), alt: '', style: { width: '64px', height: '45px', objectFit: 'contain', background: '#fff', border: '1px solid var(--rule)', flexShrink: 0 } }) : icon('plan', 22),
+          h('a', { class: 'row-main', href: '#/p/' + p.id + '/plans/' + pl.id + '?v=' + r.id, style: { textDecoration: 'none', color: 'inherit' } }, h('span', { class: 'row-t' }, pl.nom), h('span', { class: 'row-s' }, [pl.phase, pl.indice ? 'ind. ' + pl.indice : null, open + ' point(s) ouvert(s)'].filter(Boolean).join(' · '))),
+          h('a', { class: 'btn btn-sm btn-primary', href: '#/p/' + p.id + '/plans/' + pl.id + '?v=' + r.id }, 'Annoter'),
+          others.length ? h('button', { class: 'btn btn-sm btn-line', onclick: () => replacePlan(pl) }, 'Nouvelle version') : null,
+          h('button', { class: 'btn btn-sm btn-ghost', onclick: () => { r.plans = r.plans.filter((x) => x !== pl.id); save(); drawPlans(); } }, 'Retirer'));
+      })) : h('div', { class: 'small muted' }, 'Aucun plan pour cette visite.'),
+      h('div', { class: 'actions' },
+        others.length ? h('select', { class: 'select', style: { maxWidth: '320px' }, onchange: (e) => { if (e.target.value) { r.plans.push(e.target.value); save(); drawPlans(); } } }, h('option', { value: '' }, 'Ajouter un plan du projet…'), others.map((pl) => h('option', { value: pl.id }, pl.nom + (pl.indice ? ' · ind. ' + pl.indice : '')))) : null,
+        h('a', { class: 'btn btn-sm btn-line', href: '#/p/' + p.id + '/plans' }, icon('plus', 16), 'Importer un plan (Drive)')));
+  };
+  function replacePlan(old) {
+    const others = plans.filter((pl) => pl.id !== old.id && !r.plans.includes(pl.id));
+    const openPts = points.filter((x) => x.planId === old.id && x.status !== 'leve');
+    const sel = h('select', { class: 'select' }, others.map((pl) => h('option', { value: pl.id }, pl.nom + (pl.indice ? ' · ind. ' + pl.indice : ''))));
+    const move = h('input', { type: 'checkbox', checked: true });
+    const sh = sheet({ title: 'Nouvelle version de « ' + old.nom + ' »', body: [
+      h('label', { class: 'field' }, h('span', null, 'Remplacer par'), sel),
+      openPts.length ? h('label', { class: 'listen-consent' }, move, h('span', null, 'Reporter les ' + openPts.length + ' point(s) non levé(s) au même endroit sur le nouveau plan (les points levés restent sur l’ancien, pour l’historique).')) : null,
+      h('div', { class: 'small muted' }, 'L’ancien plan reste dans le projet avec ses annotations ; il n’est simplement plus utilisé par cette visite et les suivantes.')],
+      foot: [h('button', { class: 'btn btn-line', onclick: () => sh.close() }, 'Annuler'), h('button', { class: 'btn btn-primary', onclick: async () => {
+        const nid = sel.value; if (!nid) return;
+        r.plans = r.plans.map((x) => (x === old.id ? nid : x)); await db.put('reunions', r);
+        if (move.checked) for (const pt of openPts) { pt.history = (pt.history || []).concat([{ date: todayISO(), from: old.id, to: nid, visite: r.num }]); pt.planId = nid; pt.page = Math.min(pt.page || 0, ((planOf(nid) || {}).pages || 1) - 1); await db.put('points', pt); }
+        sh.close(); toast('Plan remplacé pour cette visite'); drawPlans();
+      } }, 'Remplacer')] });
+  }
+  drawPlans();
   const fld = (label, el, cls) => h('label', { class: 'field ' + (cls || '') }, h('span', null, label), el);
   const bind = (key, el) => { el.value = r[key] || ''; el.addEventListener('input', () => { r[key] = el.value; save(); }); return el; };
   const previous = reunions.filter((x) => x.num < r.num).sort((a, b) => b.num - a.num)[0];
@@ -147,7 +188,11 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
     const { buildCR } = await import('../pdfkit.js');
     const media = await db.by('media', 'projectId', p.id);
     const pageAnnots = {};
-    for (const pl of plans) for (const pg of await db.by('pages', 'planId', pl.id)) pageAnnots[pg.key] = pg;
+    // Annotations retenues pour ce CR : calques communs + calques des visites jusqu'à celle-ci
+    for (const pl of plans) for (const pg of await db.by('pages', 'planId', pl.id)) {
+      const keep = (o) => { const l = (pg.layers || []).find((x) => x.id === (o.layer || 'base')); return !l || (l.visible !== false && (!l.visiteNum || l.visiteNum <= r.num)); };
+      pageAnnots[pg.key] = Object.assign({}, pg, { strokes: (pg.strokes || []).filter(keep), texts: (pg.texts || []).filter(keep) });
+    }
     const existing = await db.by('files', 'projectId', p.id);
     for (const k of keys) {
       const blob = await buildCR({ project: p, reunion: r, points, assignments: p.assignments, entreprises, plans, media, pageAnnots, onlyLot: k === 'moa' ? null : k, getSetting: db.setting, previous });
@@ -178,7 +223,7 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
     h('div', { class: 'flexb mb' },
       h('div', null, h('a', { class: 'crumb', href: '#/p/' + p.id + '/chantier' }, icon('back', 16), 'Chantier'), h('h2', { class: 'title-sm' }, visitType(r.type).nom + ' n°' + r.num)),
       h('div', { class: 'actions' },
-        h('a', { class: 'btn', href: plans[0] ? '#/p/' + p.id + '/plans/' + plans[0].id + '?mode=point' : '#/p/' + p.id + '/plans' }, icon('pin', 18), 'Points sur plan'),
+        h('a', { class: 'btn', href: r.plans && r.plans[0] ? '#/p/' + p.id + '/plans/' + r.plans[0] + '?v=' + r.id + '&mode=point' : '#/p/' + p.id + '/plans' }, icon('pin', 18), 'Points sur plan'),
         h('button', { class: 'btn btn-line btn-icon', 'aria-label': 'Supprimer la réunion', onclick: async () => { if (await confirmBox('Supprimer la réunion n°' + r.num + ' ?', 'Supprimer')) { await db.del('reunions', r.id); location.hash = '#/p/' + p.id + '/chantier'; } } }, icon('trash', 18)))),
     h('div', { class: 'cols' },
       h('div', { class: 'stack' },
@@ -203,6 +248,7 @@ async function reunionEditor(body, { project: p, entreprises, reunions, r, point
         h('section', { class: 'card stack' },
           fld('Avancement des travaux', bind('avancement', h('textarea', { class: 'textarea', rows: 3 }))),
           fld('Observations générales', bind('general', h('textarea', { class: 'textarea', rows: 4, placeholder: 'Sécurité, propreté, planning, approvisionnements…' })))),
+        plansBox,
         h('section', { class: 'card stack' },
           h('h2', { class: 'section-t', style: { margin: 0 } }, 'Prochaine réunion'),
           h('div', { class: 'grid g2' }, fld('Date', bind('prochaine', h('input', { class: 'input', type: 'date' }))), fld('Heure', bind('prochaineHeure', h('input', { class: 'input', type: 'time' })))),

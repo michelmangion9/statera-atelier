@@ -187,18 +187,18 @@ hr.rule { border: 0; border-top: 1px solid var(--rule); margin: 24px 0; }
 .v-sheet .pdf { position: absolute; inset: 0; width: 100%; height: 100%; }
 .v-sheet canvas.detail { position: absolute; }
 .v-sheet svg.ink { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.v-sheet.erasing svg.ink path { pointer-events: visibleStroke; cursor: pointer; }
+.v-stage.erasing svg.v-ink path { pointer-events: visiblePainted; cursor: pointer; }
 .v-load { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--chaux); border: 1px solid var(--stone); padding: 14px 18px; font-size: 13px; z-index: 4; min-width: 220px; text-align: center; pointer-events: none; }
 .v-load i { display: block; height: 2px; background: var(--rule); margin-top: 10px; overflow: hidden; position: relative; }
 .v-load i::after { content: ''; position: absolute; left: -40%; top: 0; bottom: 0; width: 40%; background: var(--stone); animation: slide 1.1s linear infinite; }
 @keyframes slide { to { left: 100%; } }
 .pin { position: absolute; width: 0; height: 0; }
-.pin button { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%) scale(var(--inv, 1)); width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--paper); background: var(--stone); color: var(--paper); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.pin button { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--paper); background: var(--stone); color: var(--paper); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
 .pin button b { font-size: 13px; font-weight: 600; }
 .pin button i { font-style: normal; font-size: 8px; letter-spacing: .04em; }
 .pin.leve button { background: var(--paper); color: var(--ink2); border: 2px dashed var(--ink3); }
 .pin.sel button { background: var(--paper); color: var(--stone); border: 3px solid var(--stone); width: 48px; height: 48px; box-shadow: 0 0 0 5px rgba(22,22,22,.18); }
-.vtext { position: absolute; transform: translate(0, -50%) scale(var(--inv, 1)); transform-origin: 0 50%; font-family: var(--sans); font-size: 15px; background: rgba(255,255,255,.9); padding: 2px 6px; border: 1px solid var(--stone); white-space: pre; color: var(--stone); }
+.vtext { position: absolute; pointer-events: auto; transform: translate(0, -50%); transform-origin: 0 50%; font-family: var(--sans); font-size: 15px; background: rgba(255,255,255,.9); padding: 2px 6px; border: 1px solid var(--stone); white-space: pre; color: var(--stone); }
 .v-bot { display: flex; align-items: center; gap: 8px; padding: 8px 12px calc(8px + var(--safe-b)); background: var(--chaux); border-top: 1px solid var(--stone); flex-wrap: wrap; justify-content: space-between; }
 .v-bot .info { font-size: 12px; color: var(--ink2); }
 .v-bot .select { min-height: 40px; width: auto; max-width: 300px; }
@@ -375,3 +375,12 @@ body.rdv-mode .masthead, body.rdv-mode .tabbar{display:none}
 .pp-canvas { width: 100%; height: 100%; object-fit: contain; }
 .pp-n { font-weight: 500; font-size: 14px; }
 .pp-t { display: block; min-height: 1.2em; }
+
+/* Visionneuse : couche nette au-dessus de la feuille (points, textes, traits vectoriels) */
+.v-stage svg.v-ink { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; }
+.v-over { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.v-sheet canvas.detail { image-rendering: auto; }
+.pin button { background: var(--lc, var(--stone)); }
+.pin.leve button { background: var(--paper); }
+.pin.prev button { opacity: .55; }
+.v-visit { display: block; width: max-content; margin-left: 8px; font-size: 12px; padding: 1px 8px; border: 1px solid currentColor; color: inherit; text-decoration: none; }
